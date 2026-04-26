@@ -79,6 +79,23 @@ async function main() {
   assert.equal(correctedRun.readiness.risk, "Low");
   assert.ok(correctedRun.objectOutput.generatedWorkProduct.dtsRows.some((row) => row.value.includes("Demo Training Site")));
 
+  const noGsaRun = await runAgent("mock", {
+    ...input,
+    selectedSources: input.selectedSources.filter((source) => source !== "GSA")
+  });
+  const noGsaPerDiem = noGsaRun.objectOutput.evidenceMap.find((item) => item.requirement === "Per diem estimate");
+  assert.equal(noGsaPerDiem?.status, "Missing");
+  assert.equal(noGsaPerDiem?.mathVerified, undefined);
+  assert.match(noGsaRun.dtsRows.find(([field]) => field === "Per Diem")?.[1] ?? "", /Missing GSA source/);
+
+  const noSharePointRun = await runAgent("mock", {
+    ...input,
+    selectedSources: input.selectedSources.filter((source) => source !== "SharePoint")
+  });
+  const noSharePointRoster = noSharePointRun.objectOutput.evidenceMap.find((item) => item.requirement === "Traveler roster");
+  assert.equal(noSharePointRoster?.status, "Missing");
+  assert.deepEqual(noSharePointRoster?.evidenceArtifactIds, []);
+
   console.log("FieldDesk API contract tests passed.");
 }
 

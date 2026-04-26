@@ -47,7 +47,7 @@ export function runFieldDeskAgent(input: AgentRunInput): FieldDeskAgentRun {
     reviewerQuestions: buildReviewerQuestions(input),
     corrections: buildCorrections(input),
     actionList: buildActionList(input),
-    dtsRows: buildDtsRows(),
+    dtsRows: buildDtsRows(input),
     packageRows: [...packageRows],
     activityTrail: buildActivityTrail(input, issues),
     agentTrace: buildAgentTrace(input)
@@ -80,7 +80,6 @@ function buildAgentTrace(input: AgentRunInput): AgentTraceStep[] {
 }
 
 function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">): FieldDeskAgentObjectOutput {
-  const perDiem = buildPerDiemVerification(tripFacts);
 
   return {
     mission: run.mission,
@@ -91,18 +90,7 @@ function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">): FieldD
       finding,
       artifactIds: inferArtifactIds(`${source} ${finding}`)
     })),
-    evidenceMap: run.evidenceMap.map(([requirement, evidence, source, status]) => ({
-      requirementId: requirement.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-      requirement,
-      status,
-      evidenceArtifactIds: evidence === "None" || evidence === "Source disabled" ? [] : inferArtifactIds(`${evidence} ${source}`),
-      evidenceSummary: requirement === "Per diem estimate" && evidence !== "Source disabled" ? perDiem.summary : evidence,
-      sourceSummary: requirement === "Per diem estimate" && evidence !== "Source disabled" ? "GSA fixture" : source,
-      rationale: status === "Missing" || status === "Conflict" || status === "Weak" ? "Requires user action before routing." : "Evidence satisfies the workflow requirement.",
-      confidence: status === "Missing" || status === "Weak" ? 0.72 : 0.9,
-      mathVerified: requirement === "Per diem estimate" && evidence !== "Source disabled" ? true : undefined,
-      policyReference: policyReferenceFor(requirement)
-    })),
+    evidenceMap: run.evidenceMap.map(toAgentEvidenceItem),
     findings: run.issues.map((issue) => ({
       ...issue,
       evidenceArtifactIds: findingArtifactIds(issue),
@@ -141,10 +129,30 @@ function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">): FieldD
   };
 }
 
-function buildDtsRows() {
-  const perDiem = buildPerDiemVerification(tripFacts);
+function toAgentEvidenceItem([requirement, evidence, source, status]: EvidenceMapItem) {
+  const hasEvidence = evidence !== "None" && evidence !== "Source disabled";
+  const perDiem = requirement === "Per diem estimate" && hasEvidence ? buildPerDiemVerification(tripFacts) : null;
+
+  return {
+    requirementId: requirement.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+    requirement,
+    status,
+    evidenceArtifactIds: hasEvidence ? inferArtifactIds(`${evidence} ${source}`) : [],
+    evidenceSummary: perDiem ? perDiem.summary : evidence,
+    sourceSummary: perDiem ? "GSA fixture" : source,
+    rationale: status === "Missing" || status === "Conflict" || status === "Weak" ? "Requires user action before routing." : "Evidence satisfies the workflow requirement.",
+    confidence: status === "Missing" || status === "Weak" ? 0.72 : 0.9,
+    mathVerified: perDiem ? true : undefined,
+    policyReference: policyReferenceFor(requirement)
+  };
+}
+
+function buildDtsRows(input: AgentRunInput) {
+  const perDiem = input.selectedSources.includes("GSA") ? buildPerDiemVerification(tripFacts) : null;
   return dtsRows.map(([field, value]) => {
-    if (/per diem/i.test(field)) return [field, `${perDiem.formattedTotal} verified from GSA fixture`] as const;
+    if (/per diem/i.test(field)) {
+      return [field, perDiem ? `${perDiem.formattedTotal} verified from GSA fixture` : "Missing GSA source for verification"] as const;
+    }
     return [field, value] as const;
   });
 }

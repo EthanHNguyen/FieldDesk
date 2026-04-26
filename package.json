@@ -10,6 +10,7 @@
     "eval:mock": "tsx scripts/eval-fielddesk.ts mock",
     "eval:openrouter": "tsx scripts/eval-fielddesk.ts openai judge",
     "screenshots": "tsx scripts/capture-screenshots.ts",
+    "test:route": "tsx scripts/test-agent-route.ts",
     "test:rules": "tsx scripts/test-deterministic-rules.ts",
     "test:tools": "tsx scripts/test-fixture-tools.ts",
     "test:api": "tsx scripts/test-fielddesk-api.ts",

@@ -12,7 +12,28 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
   }
 
   const context = buildAgentRunContext(input);
+  const completion = process.env.FIELD_DESK_TEST_OPENROUTER_CONTENT === undefined
+    ? await requestOpenRouterCompletion({ apiKey, model, context })
+    : {
+        choices: [
+          {
+            message: {
+              content: process.env.FIELD_DESK_TEST_OPENROUTER_CONTENT
+            }
+          }
+        ]
+      };
 
+  const content = completion.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error("OpenRouter response did not include message content.");
+  }
+
+  return objectOutputToFieldDeskRun(normalizeAgentObjectOutput(JSON.parse(content)), input);
+}
+
+async function requestOpenRouterCompletion({ apiKey, model, context }: { apiKey: string; model: string; context: AgentRunContext }) {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -93,14 +114,7 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
     throw new Error(`OpenRouter request failed with status ${response.status}${detail ? `: ${detail}` : ""}`);
   }
 
-  const completion = (await response.json()) as OpenRouterChatCompletion;
-  const content = completion.choices?.[0]?.message?.content;
-
-  if (!content) {
-    throw new Error("OpenRouter response did not include message content.");
-  }
-
-  return objectOutputToFieldDeskRun(normalizeAgentObjectOutput(JSON.parse(content)), input);
+  return (await response.json()) as OpenRouterChatCompletion;
 }
 
 function normalizeAgentObjectOutput(value: unknown): FieldDeskAgentObjectOutput {

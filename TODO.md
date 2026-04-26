@@ -51,15 +51,15 @@ Goal: keep the hackathon demo reliable while making the backend credible to tech
   - `mathVerified === true`
 - [ ] Audit OpenRouter normalization so it never fabricates evidence that should fail validation.
 - [ ] Add tests for missing/disabled sources:
-  - [ ] GSA disabled means no math verification.
-  - [ ] SharePoint disabled means no training order/roster evidence.
+  - [x] GSA disabled means no math verification.
+  - [x] SharePoint disabled means no training order/roster evidence.
   - [x] corrected roster is unavailable before roster correction.
   - [x] funding memo is unavailable before funding correction.
 - [ ] Add API failure-mode tests:
-  - malformed request
-  - unsupported mode
-  - missing API key in OpenRouter mode
-  - malformed model output
+  - [x] malformed request
+  - [x] unsupported mode
+  - [x] missing API key in OpenRouter mode
+  - [x] malformed model output
 
 ## Autonomous Agent Loop
 
@@ -96,6 +96,7 @@ The repo is not yet using a true model-driven tool loop in the active API path. 
   - [x] `npm run lint`
   - [x] `npm run build`
   - [x] `npm run test:api`
+  - [x] `npm run test:route`
   - [x] `npm run test:rules`
   - [x] `npm run test:tools`
   - [x] `npm run test:e2e`
