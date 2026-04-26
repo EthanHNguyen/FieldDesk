@@ -13,7 +13,7 @@ export type AgentRunInput = {
   vehicleJustification: string;
 };
 
-export type AgentMode = "mock" | "openai";
+export type AgentMode = "mock" | "openai" | "tool-loop";
 
 export type AgentRunTrigger = "initial_analysis" | "correction_staged" | "source_changed" | "justification_edited";
 

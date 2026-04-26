@@ -25,6 +25,7 @@ type ArtifactSummary = {
   id: string;
   title: string;
   summary: string;
+  relevance: number;
 };
 
 type ArtifactRecord = {
@@ -33,9 +34,10 @@ type ArtifactRecord = {
   title: string;
   content: string;
   availableInState: "initial" | "corrected";
+  facts?: Record<string, unknown>;
 };
 
-export function searchSource(source: string, _query: string, context: FixtureToolContext): ToolResult<{ artifacts: ArtifactSummary[] }> {
+export function searchSource(source: string, query: string, context: FixtureToolContext): ToolResult<{ artifacts: ArtifactSummary[] }> {
   if (!context.selectedSources.includes(source)) {
     return { ok: false, error: `Source '${source}' is not selected for this run.` };
   }
@@ -43,16 +45,28 @@ export function searchSource(source: string, _query: string, context: FixtureToo
   const artifacts = allArtifacts()
     .filter((artifact) => artifact.source === source)
     .filter((artifact) => isArtifactAvailable(artifact, context))
+    .map((artifact) => ({ artifact, relevance: scoreArtifact(artifact, query) }))
+    .filter((entry) => query.trim().length === 0 || entry.relevance > 0)
+    .sort((a, b) => b.relevance - a.relevance)
     .map((artifact) => ({
-      id: artifact.id,
-      title: artifact.title,
-      summary: summarize(artifact.content)
+      id: artifact.artifact.id,
+      title: artifact.artifact.title,
+      summary: summarize(artifact.artifact.content),
+      relevance: artifact.relevance
     }));
 
   return artifacts.length > 0 ? { ok: true, data: { artifacts } } : { ok: false, error: `No available artifacts found for source: ${source}` };
 }
 
-export function readArtifact(artifactId: string, context: FixtureToolContext): ToolResult<{ id: string; title: string; content: string; source: string }> {
+export function readArtifact(artifactId: string, context: FixtureToolContext): ToolResult<{ id: string; title: string; content: string; source: string; facts?: Record<string, unknown> }> {
+  const artifact = findAvailableArtifact(artifactId, context);
+
+  if (!artifact.ok) return artifact;
+
+  return { ok: true, data: artifact.data };
+}
+
+function findAvailableArtifact(artifactId: string, context: FixtureToolContext): ToolResult<ArtifactRecord> {
   const artifact = allArtifacts().find((candidate) => candidate.id === artifactId);
 
   if (!artifact) {
@@ -97,7 +111,7 @@ export function calculatePerDiem(tripFacts: TripFacts): ToolResult<ReturnType<ty
 }
 
 export function retrievePolicyReference(topic: string): ToolResult<{ source: string; reference: string; excerpt: string }> {
-  if (/travel|tdy|per diem/i.test(topic)) {
+  if (/travel|tdy|per diem|vehicle|rental/i.test(topic)) {
     return {
       ok: true,
       data: {
@@ -150,35 +164,38 @@ function allArtifacts(): ArtifactRecord[] {
 }
 
 function outlookArtifacts(): ArtifactRecord[] {
-  const mailbox = readJson<{ messages: { id: string | number; subject: string; body: string; availableInState?: string }[] }>("outlook_messages.json");
+  const mailbox = readJson<{ messages: { id: string | number; subject: string; body: string; availableInState?: string; extractedEvidence?: unknown }[] }>("outlook_messages.json");
   return mailbox.messages.map((message) => ({
     id: String(message.id),
     source: "Outlook",
     title: message.subject,
     content: message.body,
-    availableInState: availableInState(message.availableInState)
+    availableInState: availableInState(message.availableInState),
+    facts: isRecord(message.extractedEvidence) ? message.extractedEvidence : undefined
   }));
 }
 
 function sharePointArtifacts(): ArtifactRecord[] {
-  const site = readJson<{ documents: { id: string | number; filename: string; extractedText: string; availableInState?: string }[] }>("sharepoint_documents.json");
+  const site = readJson<{ documents: { id: string | number; filename: string; extractedText: string; availableInState?: string; extractedEvidence?: unknown }[] }>("sharepoint_documents.json");
   return site.documents.map((document) => ({
     id: String(document.id),
     source: document.id === "sp-003" ? "Unit Checklist" : "SharePoint",
     title: document.filename,
     content: [document.extractedText, readOptionalCsv(document.filename)].filter(Boolean).join("\n\n"),
-    availableInState: availableInState(document.availableInState)
+    availableInState: availableInState(document.availableInState),
+    facts: isRecord(document.extractedEvidence) ? document.extractedEvidence : undefined
   }));
 }
 
 function uploadedArtifacts(): ArtifactRecord[] {
-  const uploads = readJson<{ uploads: { id: string | number; filename: string; extractedText: string; availableInState?: string }[] }>("uploaded_documents.json");
+  const uploads = readJson<{ uploads: { id: string | number; filename: string; extractedText: string; availableInState?: string; extractedEvidence?: unknown }[] }>("uploaded_documents.json");
   return uploads.uploads.map((upload) => ({
     id: String(upload.id),
     source: "Uploaded docs",
     title: upload.filename,
     content: upload.filename === "funding_memo.md" ? readDataFile("funding_memo.md") : upload.extractedText,
-    availableInState: availableInState(upload.availableInState)
+    availableInState: availableInState(upload.availableInState),
+    facts: isRecord(upload.extractedEvidence) ? upload.extractedEvidence : undefined
   }));
 }
 
@@ -205,4 +222,16 @@ function summarize(content: string) {
 
 function normalizeLocality(value: string) {
   return value.toLowerCase().replace(/\bdemo training site\b/g, "demo training site");
+}
+
+function scoreArtifact(artifact: ArtifactRecord, query: string) {
+  const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2);
+  if (tokens.length === 0) return 1;
+
+  const haystack = `${artifact.title}\n${artifact.content}\n${JSON.stringify(artifact.facts ?? {})}`.toLowerCase();
+  return tokens.reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

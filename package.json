@@ -9,9 +9,11 @@
     "lint": "eslint",
     "eval:mock": "tsx scripts/eval-fielddesk.ts mock",
     "eval:openrouter": "tsx scripts/eval-fielddesk.ts openai judge",
+    "eval:tool-loop": "tsx scripts/eval-fielddesk.ts tool-loop judge",
     "screenshots": "tsx scripts/capture-screenshots.ts",
     "test:route": "tsx scripts/test-agent-route.ts",
     "test:rules": "tsx scripts/test-deterministic-rules.ts",
+    "test:tool-loop": "tsx scripts/test-tool-loop-agent.ts",
     "test:tools": "tsx scripts/test-fixture-tools.ts",
     "test:api": "tsx scripts/test-fielddesk-api.ts",
     "test:e2e": "playwright test"

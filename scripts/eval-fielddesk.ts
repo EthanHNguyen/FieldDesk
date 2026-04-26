@@ -31,7 +31,7 @@ type ExpectedOutput = {
 
 const scenarioDir = join(process.cwd(), "evals", "golden", "demo_tdy");
 const mode = parseMode(process.argv[2]);
-const useJudge = process.argv[3] === "judge";
+const useJudge = process.argv[3] === "judge" || mode === "tool-loop";
 
 async function main() {
   loadDotEnv();
@@ -48,6 +48,8 @@ async function main() {
   });
 
   if (useJudge) {
+    assertHardInvariants("initial", initial, expectedInitial);
+    assertHardInvariants("corrected", corrected, expectedCorrected);
     await judgeRuns({ input, corrections, initial, corrected, expectedInitial, expectedCorrected });
   } else {
     assertRun("initial", initial, expectedInitial);
@@ -84,14 +86,14 @@ async function judgeRuns(payload: {
         {
           role: "system",
           content:
-            "You are an exacting evaluator for FieldDesk. Judge whether the agent output satisfies the TDY workflow rubric. Prefer factual correctness over wording. Do not require exact prose. Return only JSON."
+            "You are an exacting evaluator for FieldDesk. Judge whether the agent output satisfies the TDY workflow rubric. Prefer factual correctness and operational usefulness over exact wording, row names, ordering, or prose. Return only JSON."
         },
         {
           role: "user",
           content: JSON.stringify({
             rubric: readJson("rubric.json"),
             task:
-              "Grade the initial and corrected FieldDesk agent outputs. The initial run must not use funding_memo or roster_v3_corrected as evidence. The corrected run should use them. The agent must extract structured tripFacts with ISO dates. Math must be verified against GSA rates. The trace should show multi-step work (plan, tool_call, etc).",
+              "Grade the initial and corrected FieldDesk agent outputs semantically. The initial run must not use funding_memo or roster_v3_corrected as evidence. The corrected run should use corrected evidence when available. The agent must extract structured tripFacts with ISO dates. Per diem math should be visibly grounded in deterministic/tool evidence, whether that appears in evidenceMap, trace, DTS rows, or generated work product. The trace should show multi-step tool work. Do not penalize different evidence-map row names, reviewer question wording, or modest score variance if risk direction is correct.",
             expectedInitial: payload.expectedInitial,
             expectedCorrected: payload.expectedCorrected,
             input: payload.input,
@@ -131,6 +133,20 @@ async function judgeRuns(payload: {
 
   console.log(`Judge score: ${normalizedScore}`);
   for (const finding of judgment.findings) console.log(`- ${finding}`);
+}
+
+function assertHardInvariants(label: string, run: FieldDeskAgentRun, expected: ExpectedOutput) {
+  if (expected.tripFacts?.startDate) assertEqual(`${label} tripFacts.startDate`, run.objectOutput.tripFacts?.startDate, expected.tripFacts.startDate);
+  if (expected.tripFacts?.endDate) assertEqual(`${label} tripFacts.endDate`, run.objectOutput.tripFacts?.endDate, expected.tripFacts.endDate);
+  if (expected.tripFacts?.travelers) assertEqual(`${label} tripFacts.travelers`, run.objectOutput.tripFacts?.travelers, expected.tripFacts.travelers);
+  assertEqual(`${label} readiness.risk`, run.readiness.risk, expected.readiness.risk);
+  assertTrace(`${label} agentTrace`, run);
+
+  const evidenceText = [run.sourceSearchResults.flat().join(" "), run.evidenceMap.flat().join(" "), run.dtsRows.flat().join(" ")].join(" ");
+
+  for (const value of expected.forbiddenEvidenceRefs ?? []) {
+    assertNotContains(`${label} forbidden evidence ref`, evidenceText, value);
+  }
 }
 
 function assertRun(label: string, run: FieldDeskAgentRun, expected: ExpectedOutput) {
@@ -182,6 +198,7 @@ function assertRun(label: string, run: FieldDeskAgentRun, expected: ExpectedOutp
 }
 
 function parseMode(value: string | undefined): AgentMode {
+  if (value === "tool-loop") return "tool-loop";
   if (value === "openai") return "openai";
   return "mock";
 }

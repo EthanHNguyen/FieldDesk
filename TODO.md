@@ -49,13 +49,13 @@ Goal: keep the hackathon demo reliable while making the backend credible to tech
   - summary includes `4 nights`
   - summary includes `5 travel days`
   - `mathVerified === true`
-- [ ] Audit OpenRouter normalization so it never fabricates evidence that should fail validation.
-- [ ] Add tests for missing/disabled sources:
+- [x] Audit OpenRouter normalization so it never fabricates evidence that should fail validation.
+- [x] Add tests for missing/disabled sources:
   - [x] GSA disabled means no math verification.
   - [x] SharePoint disabled means no training order/roster evidence.
   - [x] corrected roster is unavailable before roster correction.
   - [x] funding memo is unavailable before funding correction.
-- [ ] Add API failure-mode tests:
+- [x] Add API failure-mode tests:
   - [x] malformed request
   - [x] unsupported mode
   - [x] missing API key in OpenRouter mode
@@ -63,10 +63,10 @@ Goal: keep the hackathon demo reliable while making the backend credible to tech
 
 ## Autonomous Agent Loop
 
-The repo is not yet using a true model-driven tool loop in the active API path. Do not mark this complete until `/api/agent-runs` can exercise it behind an explicit mode and the output passes the same validation/evals as the current adapter.
+The repo now has an explicit model-driven tool loop behind `FIELD_DESK_AGENT_MODE=tool-loop`. The default demo path can remain `mock` or `openai`, while judges can inspect and run the autonomous tool-call path against the same fixture tools and output validation.
 
-- [ ] Add `FIELD_DESK_AGENT_MODE=tool-loop`.
-- [ ] Define `AgentRunState`:
+- [x] Add `FIELD_DESK_AGENT_MODE=tool-loop`.
+- [x] Define `AgentRunState`:
   - input
   - selected sources
   - observations
@@ -77,18 +77,18 @@ The repo is not yet using a true model-driven tool loop in the active API path. 
   - evidence map draft
   - open issues
   - trace
-- [ ] Add model decision schema:
+- [x] Add model decision schema:
   - `tool_call`
   - `finish`
-- [ ] Validate tool arguments before execution.
-- [ ] Execute tools only through the fixture tool context.
-- [ ] Enforce max steps.
-- [ ] Synthesize `FieldDeskAgentObjectOutput`, then convert through the same adapter path as OpenRouter mode.
-- [ ] Add tests:
-  - loop cannot exceed max steps
-  - invalid tool args fail closed
-  - unavailable artifacts cannot be read
-  - final output passes `validateAgentRunOutput`
+- [x] Validate tool arguments before execution.
+- [x] Execute tools only through the fixture tool context.
+- [x] Enforce max steps.
+- [x] Synthesize `FieldDeskAgentObjectOutput`, then convert through the same adapter path as OpenRouter mode.
+- [x] Add tests:
+  - [x] loop cannot exceed max steps
+  - [x] invalid tool args fail closed
+  - [x] unavailable artifacts cannot be read
+  - [x] final output passes `validateAgentRunOutput`
 
 ## Demo Verification
 

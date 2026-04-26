@@ -124,7 +124,7 @@ function normalizeAgentObjectOutput(value: unknown): FieldDeskAgentObjectOutput 
   return value as FieldDeskAgentObjectOutput;
 }
 
-function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput, input: AgentRunInput): FieldDeskAgentRun {
+export function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput, input: AgentRunInput): FieldDeskAgentRun {
   const normalizedOutput = normalizeSourceCoverage(output, input);
 
   return {
@@ -480,9 +480,9 @@ const artifactIdsSchema = {
   items: { type: "string" }
 };
 
-const requiredSourceRows = ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"];
+export const requiredSourceRows = ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"];
 
-const fieldDeskAgentObjectOutputJsonSchema = {
+export const fieldDeskAgentObjectOutputJsonSchema = {
   type: "object",
   additionalProperties: false,
   required: [

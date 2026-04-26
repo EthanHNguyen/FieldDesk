@@ -29,19 +29,21 @@ FieldDesk is an agent-first workflow prototype for administrative readiness. A j
 ```mermaid
 flowchart TD
   A[Mission Intent] --> B[Agent Run API]
-  B --> C[Build Run Context]
-  C --> D[Live Model Reasoning]
-  C --> E[Fixture-Backed Source Tools]
-  E --> F[Outlook / SharePoint / GSA / JTR / SOP Fixtures]
-  D --> G[Structured Agent Output]
-  G --> H[Schema Validation]
-  G --> I[Deterministic Verification]
-  I --> J[Per Diem Math Verified]
-  H --> K[Evidence Map + Issues + Trace]
-  J --> K
-  K --> L[Human Review Package]
-  L --> M[Corrections Staged]
-  M --> B
+  B --> C{Agent Mode}
+  C --> D[Live Model Synthesis]
+  C --> E[Autonomous Tool Loop]
+  E --> F[Fixture-Backed Source Tools]
+  F --> G[Outlook / SharePoint / GSA / JTR / SOP Fixtures]
+  D --> H[Structured Agent Output]
+  E --> H
+  H --> I[Schema Validation]
+  H --> J[Deterministic Verification]
+  J --> K[Per Diem Math Verified]
+  I --> L[Evidence Map + Issues + Trace]
+  K --> L
+  L --> M[Human Review Package]
+  M --> N[Corrections Staged]
+  N --> B
 ```
 
 ## Agent Boundary
@@ -80,6 +82,8 @@ OPENROUTER_MODEL=google/gemini-3-flash-preview
 OPENROUTER_API_KEY=...
 ```
 
+Use `FIELD_DESK_AGENT_MODE=tool-loop` to run the bounded autonomous agent path. In that mode the model selects one tool call at a time, the API validates and executes fixture-backed tools, and the final packet still passes the same schema and deterministic math checks.
+
 Do not commit `.env`.
 
 ## Verification
@@ -91,9 +95,11 @@ npm run test:api
 npm run test:route
 npm run test:rules
 npm run test:tools
+npm run test:tool-loop
 npm run test:e2e
 npm run eval:mock
 npm run eval:openrouter
+npm run eval:tool-loop
 ```
 
 ## Scope

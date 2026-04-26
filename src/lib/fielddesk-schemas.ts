@@ -7,6 +7,7 @@ const expectedSourceRows = ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checkli
 export function parseAgentMode(value: string | undefined): AgentMode | null {
   if (value === undefined || value === "mock") return "mock";
   if (value === "openai") return "openai";
+  if (value === "tool-loop") return "tool-loop";
   return null;
 }
 

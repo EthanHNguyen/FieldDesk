@@ -37,6 +37,7 @@ async function main() {
 
   assert.equal(parseAgentMode("mock"), "mock");
   assert.equal(parseAgentMode("openai"), "openai");
+  assert.equal(parseAgentMode("tool-loop"), "tool-loop");
   assert.equal(parseAgentMode("unsupported"), null);
 
   const run = await runAgent("mock", input);
