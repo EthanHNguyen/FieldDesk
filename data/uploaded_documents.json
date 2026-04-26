@@ -1,0 +1,23 @@
+{
+  "source": "Mock uploaded files",
+  "uploads": [
+    {
+      "id": "upload-001",
+      "filename": "jtr_excerpt.md",
+      "availableInState": "initial",
+      "extractedText": "Synthetic policy reference: TDY packets commonly include destination, dates, purpose, traveler data, lodging and meals information, rental vehicle justification where requested, and supporting authorization artifacts. Funding information must be reviewed by the appropriate human authority before routing or submission."
+    },
+    {
+      "id": "upload-002",
+      "filename": "gsa_per_diem_fixture.json",
+      "availableInState": "initial",
+      "extractedText": "Use the applicable destination rate for Demo Training Site, GA. First and last travel days use the reduced meals and incidental expenses amount."
+    },
+    {
+      "id": "upload-003",
+      "filename": "funding_memo.md",
+      "availableInState": "corrected",
+      "extractedText": "Funding memo FD-FUND-2026-0610 authorizes planning purposes against synthetic line of accounting SYNTHETIC-LOA-PLACEHOLDER for 10 travelers."
+    }
+  ]
+}

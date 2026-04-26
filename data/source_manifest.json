@@ -1,0 +1,48 @@
+{
+  "scenario": "Demo Training Site TDY travel readiness",
+  "missionIntent": "Send 10 soldiers to Demo Training Site for training from June 10-14. Lodging and rental vehicles required.",
+  "sources": [
+    {
+      "name": "Outlook",
+      "fixture": "outlook_messages.json",
+      "initialResult": "Found approval email from Demo Approver and reviewer note asking for fund cite.",
+      "correctedResult": "Found funding memo attachment email in addition to original approval."
+    },
+    {
+      "name": "SharePoint",
+      "fixture": "sharepoint_documents.json",
+      "initialResult": "Found training_order.pdf, roster_v2.csv, and unit_tdy_checklist.pdf.",
+      "correctedResult": "Found corrected roster_v3_corrected.csv."
+    },
+    {
+      "name": "GSA",
+      "fixture": "gsa_per_diem_fixture.json",
+      "initialResult": "Found Demo Training Site, GA lodging rate 107 and M&IE rate 68.",
+      "correctedResult": "Same per diem evidence retained."
+    },
+    {
+      "name": "JTR",
+      "fixture": "jtr_excerpt.md",
+      "initialResult": "Found lodging, meals, authorization, and review references.",
+      "correctedResult": "Same policy references retained."
+    },
+    {
+      "name": "Local SOP",
+      "fixture": "local_sop.md",
+      "initialResult": "Found unit routing expectations.",
+      "correctedResult": "Same SOP evidence retained."
+    },
+    {
+      "name": "Funding folder",
+      "fixture": "funding_memo.md",
+      "initialResult": "No funding memo found.",
+      "correctedResult": "Found funding_memo.md."
+    },
+    {
+      "name": "Prior packets",
+      "fixture": "prior_successful_packet.md",
+      "initialResult": "Found example showing expected packet completeness.",
+      "correctedResult": "Same prior packet reference retained."
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "source": "Mock SharePoint site",
+  "site": "Demo Unit / Admin / Travel",
+  "documents": [
+    {
+      "id": "sp-001",
+      "path": "/Training/Demo_Training_Site/training_order.pdf",
+      "filename": "training_order.pdf",
+      "kind": "PDF",
+      "availableInState": "initial",
+      "extractedText": "Training event: Demo Training Site leader development course. Dates: June 10-14, 2026. Destination: Demo Training Site, GA. Travelers: 10 soldiers. Logistics: lodging, rental vehicles, and per diem required. No fund cite or travel authorization is included in this order.",
+      "extractedEvidence": {
+        "missionPurpose": "leader development training",
+        "destination": "Demo Training Site, GA",
+        "dates": "2026-06-10 through 2026-06-14",
+        "travelerCount": 10,
+        "lodgingRequired": true,
+        "rentalVehiclesRequired": true
+      }
+    },
+    {
+      "id": "sp-002",
+      "path": "/Training/Demo_Training_Site/roster_v2.csv",
+      "filename": "roster_v2.csv",
+      "kind": "CSV",
+      "availableInState": "initial",
+      "extractedText": "Initial roster contains 8 selected personnel for Demo Training Site TDY.",
+      "extractedEvidence": {
+        "travelerCount": 8,
+        "conflictsWithIntent": true
+      }
+    },
+    {
+      "id": "sp-003",
+      "path": "/Training/Demo_Training_Site/unit_tdy_checklist.pdf",
+      "filename": "unit_tdy_checklist.pdf",
+      "kind": "PDF",
+      "availableInState": "initial",
+      "extractedText": "Required before routing: personnel roster, training order, dates, lodging plan, transportation plan, per diem estimate, approval email, funding approval or line of accounting, and human reviewer confirmation.",
+      "extractedEvidence": {
+        "requiresRoster": true,
+        "requiresFunding": true,
+        "requiresPerDiem": true,
+        "requiresApproval": true,
+        "requiresTransportationJustification": true
+      }
+    },
+    {
+      "id": "sp-004",
+      "path": "/Training/Demo_Training_Site/roster_v3_corrected.csv",
+      "filename": "roster_v3_corrected.csv",
+      "kind": "CSV",
+      "availableInState": "corrected",
+      "extractedText": "Corrected roster contains 10 selected personnel for Demo Training Site TDY.",
+      "extractedEvidence": {
+        "travelerCount": 10,
+        "conflictsWithIntent": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "scenario": "Demo Training Site TDY travel readiness",
+  "intent": {
+    "workflow": "TDY Travel",
+    "purpose": "Training",
+    "destination": "Demo Training Site, GA",
+    "dates": {
+      "start": "2026-06-10",
+      "end": "2026-06-14",
+      "display": "June 10-14, 2026"
+    },
+    "travelers": 10,
+    "lodgingRequired": true,
+    "rentalVehiclesRequired": true
+  },
+  "runs": [
+    {
+      "id": "initial",
+      "readiness": {
+        "score": 72,
+        "riskOfReturn": "High",
+        "conclusion": "Most evidence was found, but the work is not ready to route."
+      },
+      "sourceSearchResults": [
+        {
+          "source": "Outlook",
+          "result": "Found approval email from Demo Approver."
+        },
+        {
+          "source": "Outlook",
+          "result": "Found reviewer note asking for fund cite."
+        },
+        {
+          "source": "SharePoint",
+          "result": "Found training_order.pdf."
+        },
+        {
+          "source": "SharePoint",
+          "result": "Found roster_v2.csv."
+        },
+        {
+          "source": "SharePoint",
+          "result": "Found unit_tdy_checklist.pdf."
+        },
+        {
+          "source": "GSA",
+          "result": "Found Demo Training Site per diem rates."
+        },
+        {
+          "source": "JTR",
+          "result": "Found lodging and rental vehicle references."
+        },
+        {
+          "source": "Funding folder",
+          "result": "No funding memo found."
+        }
+      ],
+      "evidenceMap": [
+        {
+          "requirement": "Mission purpose",
+          "evidence": "Training order",
+          "source": "SharePoint",
+          "status": "Found"
+        },
+        {
+          "requirement": "Dates",
+          "evidence": "Training order plus user intent",
+          "source": "SharePoint / Input",
+          "status": "Found"
+        },
+        {
+          "requirement": "Destination",
+          "evidence": "Training order plus user intent",
+          "source": "SharePoint / Input",
+          "status": "Found"
+        },
+        {
+          "requirement": "Traveler roster",
+          "evidence": "roster_v2.csv",
+          "source": "SharePoint",
+          "status": "Conflict"
+        },
+        {
+          "requirement": "Approval",
+          "evidence": "Demo Approver email",
+          "source": "Outlook",
+          "status": "Found"
+        },
+        {
+          "requirement": "Per diem",
+          "evidence": "Demo Training Site rate data",
+          "source": "GSA",
+          "status": "Found"
+        },
+        {
+          "requirement": "Policy reference",
+          "evidence": "JTR excerpts",
+          "source": "JTR",
+          "status": "Found"
+        },
+        {
+          "requirement": "Unit checklist",
+          "evidence": "unit_tdy_checklist.pdf",
+          "source": "SharePoint",
+          "status": "Found"
+        },
+        {
+          "requirement": "Rental vehicle justification",
+          "evidence": "User intent only",
+          "source": "Input",
+          "status": "Weak"
+        },
+        {
+          "requirement": "Funding source",
+          "evidence": "None",
+          "source": "Multiple sources",
+          "status": "Missing"
+        }
+      ],
+      "findings": [
+        {
+          "area": "Traveler count",
+          "status": "Conflict",
+          "finding": "Intent says 10, training order says 10, and roster shows 8."
+        },
+        {
+          "area": "Funding",
+          "status": "Missing",
+          "finding": "No funding memo, fund cite, or funding approval artifact found."
+        },
+        {
+          "area": "Rental vehicle",
+          "status": "Weak",
+          "finding": "Rental vehicles are requested, but no mission-specific justification is attached."
+        }
+      ],
+      "conflicts": [
+        {
+          "name": "Traveler count mismatch",
+          "sources": [
+            {
+              "source": "User intent",
+              "travelerCount": 10
+            },
+            {
+              "source": "training_order.pdf",
+              "travelerCount": 10
+            },
+            {
+              "source": "roster_v2.csv",
+              "travelerCount": 8
+            }
+          ],
+          "reviewerImpact": "A reviewer will likely return this until roster and request match.",
+          "recommendedActions": [
+            "Upload corrected roster.",
+            "Update request to 8 travelers.",
+            "Add missing travelers to roster."
+          ]
+        }
+      ],
+      "reviewerObjections": [
+        "Why does the request list 10 travelers while the roster lists 8?",
+        "What funding source supports this TDY?",
+        "Who approved lodging?",
+        "Why are rental vehicles required?",
+        "Does the per diem estimate match the travel dates and location?"
+      ],
+      "generatedWorkProduct": {
+        "packetSummary": "This TDY request supports travel for 10 soldiers to Demo Training Site from June 10-14, 2026 for training. FieldDesk found the training order, approval email, unit checklist, GSA per diem estimate, and JTR references. The roster currently lists only 8 travelers, funding evidence is missing, and rental vehicle justification needs support.",
+        "rentalVehicleJustification": "Rental vehicles are required to move personnel between lodging, training site, and required training support locations due to schedule constraints and lack of available unit transportation.",
+        "humanActionList": [
+          "Upload corrected roster or revise traveler count.",
+          "Attach funding memo or fund cite.",
+          "Add rental vehicle justification to packet.",
+          "Confirm lodging approval before routing."
+        ]
+      }
+    },
+    {
+      "id": "corrected",
+      "readiness": {
+        "score": 91,
+        "riskOfReturn": "Low",
+        "conclusion": "Administrative work is ready to route for human review."
+      },
+      "sourceSearchResults": [
+        {
+          "source": "SharePoint",
+          "result": "Found roster_v3_corrected.csv confirming 10 travelers."
+        },
+        {
+          "source": "Funding folder",
+          "result": "Found funding_memo.md."
+        },
+        {
+          "source": "Outlook",
+          "result": "Found approval email and funding memo attachment thread."
+        }
+      ],
+      "evidenceMap": [
+        {
+          "requirement": "Mission purpose",
+          "evidence": "Training order",
+          "source": "SharePoint",
+          "status": "Found"
+        },
+        {
+          "requirement": "Traveler roster",
+          "evidence": "roster_v3_corrected.csv",
+          "source": "SharePoint",
+          "status": "Resolved"
+        },
+        {
+          "requirement": "Funding source",
+          "evidence": "funding_memo.md",
+          "source": "Funding folder",
+          "status": "Found"
+        },
+        {
+          "requirement": "Rental vehicle justification",
+          "evidence": "Accepted mission-specific justification",
+          "source": "Generated work product",
+          "status": "Improved"
+        }
+      ],
+      "findings": [
+        {
+          "area": "Traveler count",
+          "status": "Resolved",
+          "finding": "Intent, training order, and corrected roster all confirm 10 travelers."
+        },
+        {
+          "area": "Funding",
+          "status": "Found",
+          "finding": "Funding memo attached with synthetic line of accounting."
+        },
+        {
+          "area": "Reviewer risk",
+          "status": "Low",
+          "finding": "Known blockers have been corrected and packet is ready for human review."
+        }
+      ],
+      "generatedWorkProduct": {
+        "packetSummary": "This TDY request supports travel for 10 soldiers to Demo Training Site from June 10-14, 2026 for training. FieldDesk found the training order, corrected roster, approval email, unit checklist, GSA per diem estimate, JTR references, and funding memo. The original traveler count mismatch and missing funding evidence have been corrected. Readiness is 91/100 and risk of return is low.",
+        "finalRoutingChecklist": [
+          "Training order attached.",
+          "Corrected 10-person roster attached.",
+          "Approval email attached.",
+          "Funding memo attached.",
+          "Per diem estimate included.",
+          "Rental vehicle justification included.",
+          "Human reviewer confirms before submission."
+        ]
+      }
+    }
+  ]
+}

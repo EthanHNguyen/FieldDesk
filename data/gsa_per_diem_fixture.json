@@ -1,0 +1,24 @@
+{
+  "source": "Synthetic GSA-style per diem fixture for local demo use",
+  "fiscalYear": 2026,
+  "rates": [
+    {
+      "state": "GA",
+      "city": "Demo Training Site",
+      "county": "Muscogee",
+      "locality": "Demo Training Site, GA",
+      "lodging": 107,
+      "mealsIncidentals": 68,
+      "firstLastDayMeals": 51
+    }
+  ],
+  "estimate": {
+    "travelers": 10,
+    "nights": 4,
+    "lodgingSubtotal": 4280,
+    "mealsIncidentalsSubtotal": 2720,
+    "firstLastDayMealsSubtotal": 1020,
+    "estimatedTotal": 8020,
+    "note": "Synthetic estimate for demo use only; not an authoritative rate decision."
+  }
+}

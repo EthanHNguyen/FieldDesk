@@ -1,0 +1,55 @@
+{
+  "source": "Mock Outlook mailbox",
+  "mailbox": "demo.admin@example.test",
+  "messages": [
+    {
+      "id": "outlook-001",
+      "folder": "Inbox",
+      "from": "demo.approver@example.test",
+      "fromDisplayName": "Demo Approver",
+      "to": ["demo.admin@example.test"],
+      "cc": ["demo.reviewer@example.test"],
+      "sentAt": "2026-05-22T14:15:00-04:00",
+      "subject": "Approval to prepare Demo Training Site TDY packet",
+      "body": "Proceed with preparing the TDY packet for 10 soldiers attending the Demo Training Site leader development training from 10-14 June. Include lodging, rental vehicle request, roster, and per diem estimate for review.",
+      "extractedEvidence": {
+        "approval": true,
+        "destination": "Demo Training Site, GA",
+        "dates": "2026-06-10 through 2026-06-14",
+        "travelerCount": 10,
+        "purpose": "leader development training"
+      }
+    },
+    {
+      "id": "outlook-002",
+      "folder": "Inbox",
+      "from": "demo.reviewer@example.test",
+      "fromDisplayName": "Demo Reviewer",
+      "to": ["demo.admin@example.test"],
+      "sentAt": "2026-05-24T09:40:00-04:00",
+      "subject": "Reviewer note: Demo Training Site TDY needs fund cite",
+      "body": "Before this routes, make sure the packet includes a fund cite or funding memo. Packets without funding evidence usually come back.",
+      "extractedEvidence": {
+        "reviewerRisk": "funding evidence required before routing",
+        "fundingArtifactPresent": false
+      }
+    },
+    {
+      "id": "outlook-003",
+      "folder": "Sent",
+      "from": "demo.admin@example.test",
+      "fromDisplayName": "Demo Packet Owner",
+      "to": ["demo.reviewer@example.test"],
+      "sentAt": "2026-05-28T11:05:00-04:00",
+      "subject": "Funding memo attached for Demo Training Site TDY",
+      "body": "Attached is the synthetic funding memo for the Demo Training Site training TDY. It covers 10 travelers for 10-14 June and includes the planning line of accounting for review.",
+      "attachments": ["funding_memo.md"],
+      "availableInState": "corrected",
+      "extractedEvidence": {
+        "fundingArtifactPresent": true,
+        "lineOfAccounting": "SYNTHETIC-LOA-PLACEHOLDER",
+        "travelerCount": 10
+      }
+    }
+  ]
+}
