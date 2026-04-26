@@ -50,7 +50,8 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
       input: parsedRequest.value.input,
       output: run,
-      events: run.activityTrail
+      events: run.activityTrail,
+      agentTrace: run.agentTrace
     };
 
     return NextResponse.json({

@@ -1157,15 +1157,29 @@ function MissionRail({ correctionsStaged, run, step, resolved }: { correctionsSt
       </div>
       <div className="progress">
         <h2>Activity Trail</h2>
-        {run.activityTrail.map((event) => (
-          <div className="activityItem" key={event.label}>
-            <StatusPill status={event.status} />
-            <div>
-              <strong>{event.label}</strong>
-              <span>{event.detail}</span>
-            </div>
+        {run.agentTrace ? (
+          <div className="agentTrace">
+            {run.agentTrace.map((step) => (
+              <div className="activityItem" key={step.stepIndex}>
+                <StatusPill status={step.status} />
+                <div>
+                  <strong>{step.label}</strong>
+                  <span>{step.observationSummary}</span>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          run.activityTrail.map((event) => (
+            <div className="activityItem" key={event.label}>
+              <StatusPill status={event.status} />
+              <div>
+                <strong>{event.label}</strong>
+                <span>{event.detail}</span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </aside>
   );

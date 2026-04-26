@@ -3,16 +3,15 @@ import { join } from "node:path";
 import { buildPerDiemVerification } from "../deterministic-rules";
 import type { AgentArtifact, AgentRunContext, AgentRunInput, CorrectionEvent, FieldDeskAgentObjectOutput, FieldDeskAgentRun, UnavailableArtifactSummary } from "../fielddesk-types";
 
-const requiredSourceRows = ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"];
-
 export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAgentRun> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const model = process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
-  const context = buildAgentRunContext(input);
 
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY is not configured.");
   }
+
+  const context = buildAgentRunContext(input);
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -20,7 +19,7 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "HTTP-Referer": "http://localhost:3000",
-      "X-Title": "FieldDesk"
+      "X-Title": "FieldDesk Agent"
     },
     body: JSON.stringify({
       model,
@@ -39,6 +38,7 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
               statuses: ["Found", "Weak", "Missing", "Conflict", "Resolved", "Improved", "High", "Low"],
               preserveTableOrder: true,
               requiredSourceRows,
+              tripFactsRule: "Extract structured tripFacts (destination, locality, startDate, endDate, travelers) from available artifacts. Use ISO 8601 (YYYY-MM-DD) for all dates. If dates are ranges like 'June 10-14, 2026', resolve to '2026-06-10' and '2026-06-14'.",
               sourceSearchRule:
                 "Return exactly one sourceSearchResults row for every requiredSourceRows entry, in requiredSourceRows order. If a required source is not in selectedSources, return that source with finding 'Source disabled for this run' and no artifact IDs. Include supporting/reference sources such as JTR, Unit Checklist, and Local SOP even when they only corroborate requirements.",
               requiredEvidenceRequirements: [
@@ -53,22 +53,25 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
                 "Rental vehicle justification",
                 "Funding source"
               ],
+              evidenceMapRule: "Return EXACTLY one row in evidenceMap for each requirement listed in requiredEvidenceRequirements. Do not change the requirement names. Use status 'Conflict' if evidence exists but contradicts mission intent (e.g. traveler count mismatch).",
               requiredIssueIds: ["roster", "funding", "justification"],
               citationRule: "Every evidence-backed claim must cite available artifact IDs. Never cite unavailable artifact IDs as evidence.",
               deterministicMathRule:
                 "Do not calculate per diem totals yourself. Use GSA evidence only to identify locality/rates. The application verifies per diem math deterministically after generation.",
               policyTraceabilityRule:
                 "For gaps and findings tied to policy or unit routing, cite available JTR, Unit Checklist, or Local SOP artifact IDs in evidenceArtifactIds and rationale.",
-              scoringGuidance: "Score and risk should follow the evidence available in this run. Do not treat unavailable artifacts as found.",
+              scoringGuidance: "Readiness score (0-100 integer) and risk (High/Low) should follow the evidence available in this run. Initial runs with gaps normally score 50-76. Corrected runs with no major gaps score 88-95.",
               expectedOutputShape: {
                 mission: "object",
+                tripFacts: "object with structured dates and travelers",
                 sourceSearchResults: "array of { source, finding, artifactIds }",
                 evidenceMap: "array of { requirementId, requirement, status, evidenceArtifactIds, evidenceSummary, sourceSummary, rationale, confidence }",
                 readiness: "object with score, risk, riskLabel, areas",
                 findings: "array of issue objects with artifact citations",
                 reviewerObjections: "array of { question, rationale, evidenceArtifactIds }",
                 generatedWorkProduct: "object with packetSummary, rentalVehicleJustification, dtsRows, packageRows, actionList",
-                activityTrail: "array of event objects"
+                activityTrail: "array of event objects",
+                agentTrace: "array of trace steps (plan, tool_call, observation, synthesis, verification)"
               }
             }
           })
@@ -112,38 +115,39 @@ function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput, input: A
 
   return {
     mission: normalizedOutput.mission,
-    sourceSearchResults: normalizedOutput.sourceSearchResults.map((row) => [row.source, row.finding]),
-    evidenceMap: normalizedOutput.evidenceMap.map((item) => [item.requirement, item.evidenceSummary || "None", item.sourceSummary || item.evidenceArtifactIds.join(", ") || "None", item.status]),
+    sourceSearchResults: (normalizedOutput.sourceSearchResults || []).map((row) => [row.source, row.finding]),
+    evidenceMap: (normalizedOutput.evidenceMap || []).map((item) => [item.requirement, item.evidenceSummary || "None", item.sourceSummary || item.evidenceArtifactIds.join(", ") || "None", item.status]),
     readiness: {
-      score: normalizedOutput.readiness.score,
-      risk: normalizedOutput.readiness.risk,
-      riskLabel: normalizedOutput.readiness.riskLabel,
-      areas: normalizedOutput.readiness.areas.map((area) => [area.area, area.status])
+      score: normalizedOutput.readiness?.score ?? 0,
+      risk: normalizedOutput.readiness?.risk ?? "High",
+      riskLabel: normalizedOutput.readiness?.riskLabel ?? "Unknown",
+      areas: (normalizedOutput.readiness?.areas || []).map((area) => [area.area, area.status])
     },
-    issues: normalizedOutput.findings.map((finding) => ({
+    issues: (normalizedOutput.findings || []).map((finding) => ({
       id: finding.id,
       title: finding.title,
       status: finding.status,
       summary: finding.summary,
       owner: finding.owner,
-      suggestedActions: finding.suggestedActions
+      suggestedActions: finding.suggestedActions || []
     })),
-    reviewerQuestions: normalizedOutput.reviewerObjections.map((objection) => objection.question),
-    corrections: normalizedOutput.generatedWorkProduct.actionList
+    reviewerQuestions: (normalizedOutput.reviewerObjections || []).map((objection) => objection.question),
+    corrections: (normalizedOutput.generatedWorkProduct?.actionList || [])
       .filter((action) => /roster|funding|justification/i.test(action.action))
       .map((action) => [action.action, action.status]),
-    actionList: normalizedOutput.generatedWorkProduct.actionList.map((action) => [action.action, action.owner, action.status]),
-    dtsRows: normalizedOutput.generatedWorkProduct.dtsRows.map((row) => [row.field, row.value]),
-    packageRows: normalizedOutput.generatedWorkProduct.packageRows,
-    activityTrail: normalizedOutput.activityTrail,
+    actionList: (normalizedOutput.generatedWorkProduct?.actionList || []).map((action) => [action.action, action.owner, action.status]),
+    dtsRows: (normalizedOutput.generatedWorkProduct?.dtsRows || []).map((row) => [row.field, row.value]),
+    packageRows: normalizedOutput.generatedWorkProduct?.packageRows || [],
+    activityTrail: normalizedOutput.activityTrail || [],
+    agentTrace: normalizedOutput.agentTrace,
     objectOutput: normalizedOutput
   };
 }
 
 function normalizeSourceCoverage(output: FieldDeskAgentObjectOutput, input: AgentRunInput): FieldDeskAgentObjectOutput {
-  const evidenceMap = normalizeEvidenceControls(output.evidenceMap, input);
-  const generatedWorkProduct = normalizeGeneratedWorkProduct(output.generatedWorkProduct, input);
-  const existingRows = new Map(output.sourceSearchResults.map((row) => [row.source.toLowerCase(), row]));
+  const evidenceMap = normalizeEvidenceControls(output);
+  const generatedWorkProduct = normalizeGeneratedWorkProduct(output);
+  const existingRows = new Map((output.sourceSearchResults || []).map((row) => [row.source.toLowerCase(), row]));
   const sourceSearchResults = requiredSourceRows.map((source) => {
     if (!input.selectedSources.includes(source)) {
       return {
@@ -153,9 +157,9 @@ function normalizeSourceCoverage(output: FieldDeskAgentObjectOutput, input: Agen
       };
     }
 
-    return existingRows.get(source.toLowerCase()) ?? fallbackSourceSearchRow(source, output);
+    return existingRows.get(source.toLowerCase()) ?? { source, finding: "Source not analyzed by agent", artifactIds: [] };
   });
-  const extraRows = output.sourceSearchResults.filter((row) => !requiredSourceRows.some((source) => source.toLowerCase() === row.source.toLowerCase()));
+  const extraRows = (output.sourceSearchResults || []).filter((row) => !requiredSourceRows.some((source) => source.toLowerCase() === row.source.toLowerCase()));
 
   return {
     ...output,
@@ -165,95 +169,81 @@ function normalizeSourceCoverage(output: FieldDeskAgentObjectOutput, input: Agen
   };
 }
 
-function normalizeGeneratedWorkProduct(generatedWorkProduct: FieldDeskAgentObjectOutput["generatedWorkProduct"], input: AgentRunInput) {
-  const perDiem = buildPerDiemVerification(input);
-  const dtsRows = generatedWorkProduct.dtsRows.filter((row) => !/per diem/i.test(row.field));
+function normalizeGeneratedWorkProduct(output: FieldDeskAgentObjectOutput) {
+  const generatedWorkProduct = output.generatedWorkProduct || { dtsRows: [], actionList: [], packageRows: [], packetSummary: "", rentalVehicleJustification: "" };
+  const dtsRows = (generatedWorkProduct.dtsRows || []).filter((row) => !/per diem/i.test(row.field));
 
-  return {
-    ...generatedWorkProduct,
-    dtsRows: [
-      ...dtsRows,
-      {
-        field: "Per Diem Estimate",
-        value: `${perDiem.formattedTotal} verified from GSA fixture`,
-        sourceArtifactIds: ["gsa-001"]
-      }
-    ]
-  };
+  if (!output.tripFacts) {
+    return {
+      ...generatedWorkProduct,
+      dtsRows: [
+        ...dtsRows,
+        {
+          field: "Per Diem Estimate",
+          value: "Missing trip facts for verification",
+          sourceArtifactIds: []
+        }
+      ]
+    };
+  }
+
+  try {
+    const perDiem = buildPerDiemVerification(output.tripFacts);
+    return {
+      ...generatedWorkProduct,
+      dtsRows: [
+        ...dtsRows,
+        {
+          field: "Per Diem Estimate",
+          value: `${perDiem.formattedTotal} verified from GSA fixture`,
+          sourceArtifactIds: ["gsa-001"]
+        }
+      ]
+    };
+  } catch (e) {
+    return {
+      ...generatedWorkProduct,
+      dtsRows: [
+        ...dtsRows,
+        {
+          field: "Per Diem Estimate",
+          value: `Verification failed: ${e instanceof Error ? e.message : "Unknown error"}`,
+          sourceArtifactIds: []
+        }
+      ]
+    };
+  }
 }
 
-function normalizeEvidenceControls(evidenceMap: FieldDeskAgentObjectOutput["evidenceMap"], input: AgentRunInput) {
-  const perDiem = buildPerDiemVerification(input);
+function normalizeEvidenceControls(output: FieldDeskAgentObjectOutput) {
+  const evidenceMap = output.evidenceMap || [];
+  const tripFacts = output.tripFacts;
 
   return evidenceMap.map((item) => {
     if (/per diem/i.test(item.requirement)) {
       if (/source disabled|none/i.test(item.evidenceSummary)) return item;
+      if (!tripFacts) return { ...item, status: "Weak" as const, evidenceSummary: "Missing trip facts for verification" };
 
-      return {
-        ...item,
-        evidenceSummary: perDiem.summary,
-        sourceSummary: "GSA fixture",
-        evidenceArtifactIds: item.evidenceArtifactIds.includes("gsa-001") ? item.evidenceArtifactIds : [...item.evidenceArtifactIds, "gsa-001"],
-        mathVerified: true
-      };
-    }
-
-    if (/policy reference/i.test(item.requirement)) {
-      return {
-        ...item,
-        policyReference: {
-          source: "JTR",
-          reference: "Mocked JTR excerpt",
-          excerpt: "TDY packets commonly include destination, dates, purpose, traveler data, lodging and meals information, transportation justification, and supporting authorization artifacts."
-        }
-      };
-    }
-
-    if (/unit checklist|funding source|rental vehicle/i.test(item.requirement)) {
-      return {
-        ...item,
-        policyReference: {
-          source: "Local SOP",
-          reference: "TDY Packet Routing Expectations",
-          excerpt: "Include a funding memo or line of accounting before routing; include per diem estimate and lodging requirement; provide mission-specific rental vehicle justification when rental vehicles are requested."
-        }
-      };
+      try {
+        const perDiem = buildPerDiemVerification(tripFacts);
+        return {
+          ...item,
+          evidenceSummary: perDiem.summary,
+          sourceSummary: "GSA fixture",
+          evidenceArtifactIds: item.evidenceArtifactIds.includes("gsa-001") ? item.evidenceArtifactIds : [...item.evidenceArtifactIds, "gsa-001"],
+          mathVerified: true
+        };
+      } catch (e) {
+        return {
+          ...item,
+          status: "Conflict" as const,
+          evidenceSummary: `Verification failed: ${e instanceof Error ? e.message : "Unknown error"}`
+        };
+      }
     }
 
     return item;
   });
-}
-
-function fallbackSourceSearchRow(source: string, output: FieldDeskAgentObjectOutput) {
-  const artifactIdsBySource: Record<string, string[]> = {
-    Outlook: ["outlook-001", "outlook-002"],
-    SharePoint: ["sp-001", "sp-002"],
-    GSA: ["gsa-001"],
-    JTR: ["jtr-001"],
-    "Unit Checklist": ["sp-003"],
-    "Local SOP": ["sop-001"]
-  };
-  const evidenceText = output.evidenceMap
-    .filter((item) => source === "Unit Checklist" ? /checklist/i.test(item.requirement + item.evidenceSummary + item.sourceSummary) : item.sourceSummary.toLowerCase().includes(source.toLowerCase()))
-    .map((item) => item.evidenceSummary)
-    .filter(Boolean)
-    .join("; ");
-
-  return {
-    source,
-    finding: evidenceText || fallbackSourceFinding(source),
-    artifactIds: artifactIdsBySource[source] ?? []
-  };
-}
-
-function fallbackSourceFinding(source: string) {
-  if (source === "Outlook") return "Searched approval and reviewer email artifacts.";
-  if (source === "SharePoint") return "Searched training order and roster artifacts.";
-  if (source === "GSA") return "Searched Demo Training Site per diem rate artifact.";
-  if (source === "JTR") return "Searched TDY policy reference artifact.";
-  if (source === "Unit Checklist") return "Searched unit TDY checklist requirements.";
-  if (source === "Local SOP") return "Searched local TDY routing expectations.";
-  return "Searched selected source artifacts.";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -476,18 +466,22 @@ const artifactIdsSchema = {
   items: { type: "string" }
 };
 
+const requiredSourceRows = ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"];
+
 const fieldDeskAgentObjectOutputJsonSchema = {
   type: "object",
   additionalProperties: false,
   required: [
     "mission",
+    "tripFacts",
     "sourceSearchResults",
     "evidenceMap",
     "readiness",
     "findings",
     "reviewerObjections",
     "generatedWorkProduct",
-    "activityTrail"
+    "activityTrail",
+    "agentTrace"
   ],
   properties: {
     mission: {
@@ -499,6 +493,21 @@ const fieldDeskAgentObjectOutputJsonSchema = {
         destination: { type: "string" },
         dates: { type: "string" },
         travelers: { type: "string" }
+      }
+    },
+    tripFacts: {
+      type: "object",
+      additionalProperties: false,
+      required: ["destination", "locality", "startDate", "endDate", "travelers", "evidenceArtifactIds", "confidence", "rationale"],
+      properties: {
+        destination: { type: "string" },
+        locality: { type: "string" },
+        startDate: { type: "string" },
+        endDate: { type: "string" },
+        travelers: { type: "integer" },
+        evidenceArtifactIds: artifactIdsSchema,
+        confidence: { type: "number", minimum: 0, maximum: 1 },
+        rationale: { type: "string" }
       }
     },
     sourceSearchResults: {
@@ -548,7 +557,7 @@ const fieldDeskAgentObjectOutputJsonSchema = {
       additionalProperties: false,
       required: ["score", "risk", "riskLabel", "areas"],
       properties: {
-        score: { type: "number", minimum: 0, maximum: 100 },
+        score: { type: "integer" },
         risk: { type: "string", enum: ["High", "Low"] },
         riskLabel: { type: "string" },
         areas: {
@@ -571,20 +580,17 @@ const fieldDeskAgentObjectOutputJsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "title", "status", "summary", "owner", "suggestedActions", "evidenceArtifactIds", "rationale", "confidence"],
+        required: ["id", "title", "status", "summary", "evidenceArtifactIds", "rationale", "confidence", "owner", "suggestedActions"],
         properties: {
-          id: { type: "string", enum: ["roster", "funding", "justification"] },
+          id: { type: "string" },
           title: { type: "string" },
           status: { type: "string", enum: statusEnum },
           summary: { type: "string" },
-          owner: { type: "string" },
-          suggestedActions: {
-            type: "array",
-            items: { type: "string" }
-          },
           evidenceArtifactIds: artifactIdsSchema,
           rationale: { type: "string" },
-          confidence: { type: "number", minimum: 0, maximum: 1 }
+          confidence: { type: "number", minimum: 0, maximum: 1 },
+          owner: { type: "string" },
+          suggestedActions: { type: "array", items: { type: "string" } }
         }
       }
     },
@@ -621,10 +627,7 @@ const fieldDeskAgentObjectOutputJsonSchema = {
             }
           }
         },
-        packageRows: {
-          type: "array",
-          items: { type: "string" }
-        },
+        packageRows: { type: "array", items: { type: "string" } },
         actionList: {
           type: "array",
           items: {
@@ -649,6 +652,24 @@ const fieldDeskAgentObjectOutputJsonSchema = {
         properties: {
           label: { type: "string" },
           detail: { type: "string" },
+          status: { type: "string", enum: statusEnum }
+        }
+      }
+    },
+    agentTrace: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["stepIndex", "kind", "label", "status"],
+        properties: {
+          stepIndex: { type: "integer" },
+          kind: { type: "string", enum: ["plan", "tool_call", "observation", "synthesis", "verification"] },
+          label: { type: "string" },
+          toolName: { type: "string" },
+          argsSummary: { type: "string" },
+          observationSummary: { type: "string" },
+          artifactIds: artifactIdsSchema,
           status: { type: "string", enum: statusEnum }
         }
       }

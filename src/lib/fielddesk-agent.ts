@@ -1,15 +1,17 @@
 import {
   actionList,
+  agentTrace as staticAgentTrace,
   corrections,
   dtsRows,
   evidenceMap,
   missionSummary,
   packageRows,
   readinessAreas,
-  reviewerQuestions
+  reviewerQuestions,
+  tripFacts
 } from "./fielddesk-static";
-import { buildPerDiemVerification, perDiemDtsValue } from "./deterministic-rules";
-import type { ActivityEvent, AgentIssue, AgentRunInput, EvidenceMapItem, FieldDeskAgentObjectOutput, FieldDeskAgentRun, ReadinessArea, SourceSearchResult, Status } from "./fielddesk-types";
+import { buildPerDiemVerification } from "./deterministic-rules";
+import type { ActivityEvent, AgentIssue, AgentRunInput, EvidenceMapItem, FieldDeskAgentObjectOutput, FieldDeskAgentRun, ReadinessArea, SourceSearchResult, Status, AgentTraceStep } from "./fielddesk-types";
 
 const resolvedReadinessAreas: ReadinessArea[] = [
   ["Mission intent", "Found"],
@@ -45,22 +47,45 @@ export function runFieldDeskAgent(input: AgentRunInput): FieldDeskAgentRun {
     reviewerQuestions: buildReviewerQuestions(input),
     corrections: buildCorrections(input),
     actionList: buildActionList(input),
-    dtsRows: buildDtsRows(input),
+    dtsRows: buildDtsRows(),
     packageRows: [...packageRows],
-    activityTrail: buildActivityTrail(input, issues)
+    activityTrail: buildActivityTrail(input, issues),
+    agentTrace: buildAgentTrace(input)
   };
 
   return {
     ...run,
-    objectOutput: buildObjectOutput(run, input)
+    objectOutput: buildObjectOutput(run)
   };
 }
 
-function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">, input: AgentRunInput): FieldDeskAgentObjectOutput {
-  const perDiem = buildPerDiemVerification(input);
+function buildAgentTrace(input: AgentRunInput): AgentTraceStep[] {
+  const allResolved = input.resolutions.roster && input.resolutions.funding && input.resolutions.justification;
+  const trace = [...staticAgentTrace] as AgentTraceStep[];
+
+  if (allResolved) {
+    return [
+      ...trace,
+      {
+        stepIndex: trace.length + 1,
+        kind: "verification",
+        label: "Correction verification",
+        observationSummary: "All staged corrections verified against target state.",
+        status: "Resolved"
+      }
+    ];
+  }
+
+  return trace;
+}
+
+function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">): FieldDeskAgentObjectOutput {
+  const perDiem = buildPerDiemVerification(tripFacts);
 
   return {
     mission: run.mission,
+    tripFacts,
+    agentTrace: [...run.agentTrace],
     sourceSearchResults: run.sourceSearchResults.map(([source, finding]) => ({
       source,
       finding,
@@ -116,9 +141,10 @@ function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">, input: 
   };
 }
 
-function buildDtsRows(input: AgentRunInput) {
+function buildDtsRows() {
+  const perDiem = buildPerDiemVerification(tripFacts);
   return dtsRows.map(([field, value]) => {
-    if (/per diem/i.test(field)) return [field, perDiemDtsValue(input)] as const;
+    if (/per diem/i.test(field)) return [field, `${perDiem.formattedTotal} verified from GSA fixture`] as const;
     return [field, value] as const;
   });
 }

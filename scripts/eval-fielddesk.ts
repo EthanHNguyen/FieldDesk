@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runAgent } from "../src/lib/agent-adapters/run-agent";
+import { runAgent, AgentOutputValidationError } from "../src/lib/agent-adapters/run-agent";
 import type { AgentMode, AgentRunInput, FieldDeskAgentRun, Status } from "../src/lib/fielddesk-types";
 
 type ExpectedOutput = {
@@ -8,6 +8,11 @@ type ExpectedOutput = {
     destination?: string;
     dates?: string | string[];
     travelers?: string;
+  };
+  tripFacts?: {
+    startDate?: string;
+    endDate?: string;
+    travelers?: number;
   };
   readiness: {
     score: {
@@ -86,7 +91,7 @@ async function judgeRuns(payload: {
           content: JSON.stringify({
             rubric: readJson("rubric.json"),
             task:
-              "Grade the initial and corrected FieldDesk agent outputs. The initial run must not use funding_memo or roster_v3_corrected as evidence. The corrected run should use them. The model may choose its own score calibration if risk/status reasoning is coherent.",
+              "Grade the initial and corrected FieldDesk agent outputs. The initial run must not use funding_memo or roster_v3_corrected as evidence. The corrected run should use them. The agent must extract structured tripFacts with ISO dates. Math must be verified against GSA rates. The trace should show multi-step work (plan, tool_call, etc).",
             expectedInitial: payload.expectedInitial,
             expectedCorrected: payload.expectedCorrected,
             input: payload.input,
@@ -133,11 +138,20 @@ function assertRun(label: string, run: FieldDeskAgentRun, expected: ExpectedOutp
   if (expected.mission?.dates) assertContainsAny(`${label} mission.dates`, run.mission.dates, Array.isArray(expected.mission.dates) ? expected.mission.dates : [expected.mission.dates]);
   if (expected.mission?.travelers) assertContains(`${label} mission.travelers`, run.mission.travelers, expected.mission.travelers);
 
+  if (expected.tripFacts?.startDate) assertEqual(`${label} tripFacts.startDate`, run.objectOutput.tripFacts?.startDate, expected.tripFacts.startDate);
+  if (expected.tripFacts?.endDate) assertEqual(`${label} tripFacts.endDate`, run.objectOutput.tripFacts?.endDate, expected.tripFacts.endDate);
+  if (expected.tripFacts?.travelers) assertEqual(`${label} tripFacts.travelers`, run.objectOutput.tripFacts?.travelers, expected.tripFacts.travelers);
+  assertTrace(`${label} agentTrace`, run);
+  assertPerDiemVerification(`${label} perDiem`, run);
+
   assertRange(`${label} readiness.score`, run.readiness.score, expected.readiness.score.min, expected.readiness.score.max);
   assertEqual(`${label} readiness.risk`, run.readiness.risk, expected.readiness.risk);
 
   for (const [requirement, status] of Object.entries(expected.requiredEvidenceStatuses)) {
-    const item = run.evidenceMap.find(([name]) => name === requirement);
+    const item = run.evidenceMap.find(([name]) => name.toLowerCase() === requirement.toLowerCase());
+    if (!item) {
+      console.log(`Available requirements in ${label}:`, run.evidenceMap.map(([name]) => name));
+    }
     assertDefined(`${label} evidence ${requirement}`, item);
     assertOneOf(`${label} evidence ${requirement} status`, item[3], Array.isArray(status) ? status : [status]);
   }
@@ -223,6 +237,23 @@ function assertOneOf<T>(label: string, actual: T, expected: T[]) {
   if (!expected.includes(actual)) throw new Error(`${label}: expected one of ${expected.join(", ")}, received ${String(actual)}.`);
 }
 
+function assertTrace(label: string, run: FieldDeskAgentRun) {
+  assertDefined(label, run.agentTrace);
+  const traceText = run.agentTrace.map((step) => `${step.kind} ${step.label} ${step.toolName ?? ""} ${step.observationSummary ?? ""}`).join(" ");
+  for (const expected of ["search", "per diem", "synthesis"]) {
+    assertContains(label, traceText, expected);
+  }
+}
+
+function assertPerDiemVerification(label: string, run: FieldDeskAgentRun) {
+  const perDiem = run.objectOutput.evidenceMap.find((item) => /per diem/i.test(item.requirement));
+  assertDefined(label, perDiem);
+  assertEqual(`${label} mathVerified`, perDiem.mathVerified, true);
+  assertContains(`${label} evidenceSummary`, perDiem.evidenceSummary, "$7,340");
+  assertContains(`${label} evidenceSummary`, perDiem.evidenceSummary, "4 nights");
+  assertContains(`${label} evidenceSummary`, perDiem.evidenceSummary, "5 travel days");
+}
+
 type JudgeResult = {
   pass: boolean;
   score: number;
@@ -252,6 +283,13 @@ const judgeSchema = {
 };
 
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
+  if (error instanceof AgentOutputValidationError) {
+    console.error("Agent output failed validation:");
+    for (const detail of error.details) {
+      console.error(`- ${detail}`);
+    }
+  } else {
+    console.error(error instanceof Error ? error.message : error);
+  }
   process.exit(1);
 });

@@ -80,24 +80,34 @@ export function validateAgentRunOutput(value: unknown): { ok: true } | { ok: fal
     errors.push("readiness.risk must be High or Low.");
   }
 
-  if (!Array.isArray(value.issues) || value.issues.length === 0) {
-    errors.push("issues must contain at least one item.");
+  if (!Array.isArray(value.issues)) {
+    errors.push("issues must be an array.");
+  }
+
+  if (!Array.isArray(value.agentTrace) || value.agentTrace.length === 0) {
+    errors.push("agentTrace must contain at least one item.");
   }
 
   if (!isRecord(value.objectOutput)) {
     errors.push("objectOutput must be an object-native agent result.");
   } else {
+    if (!isValidTripFacts(value.objectOutput.tripFacts)) {
+      errors.push("objectOutput.tripFacts must include destination, locality, ISO startDate/endDate, travelers, evidenceArtifactIds, confidence, and rationale.");
+    }
     if (!Array.isArray(value.objectOutput.evidenceMap) || value.objectOutput.evidenceMap.length === 0) {
       errors.push("objectOutput.evidenceMap must contain at least one item.");
     }
     if (!Array.isArray(value.objectOutput.sourceSearchResults) || !hasExpectedObjectSourceRows(value.objectOutput.sourceSearchResults)) {
       errors.push(`objectOutput.sourceSearchResults must include: ${expectedSourceRows.join(", ")}.`);
     }
-    if (!Array.isArray(value.objectOutput.findings) || value.objectOutput.findings.length === 0) {
-      errors.push("objectOutput.findings must contain at least one item.");
+    if (!Array.isArray(value.objectOutput.findings)) {
+      errors.push("objectOutput.findings must be an array.");
     }
     if (!isRecord(value.objectOutput.generatedWorkProduct)) {
       errors.push("objectOutput.generatedWorkProduct must be an object.");
+    }
+    if (!Array.isArray(value.objectOutput.agentTrace) || value.objectOutput.agentTrace.length === 0) {
+      errors.push("objectOutput.agentTrace must contain at least one item.");
     }
   }
 
@@ -178,4 +188,26 @@ function hasExpectedSourceRows(rows: unknown[]) {
 function hasExpectedObjectSourceRows(rows: unknown[]) {
   const sources = rows.map((row) => isRecord(row) ? row.source : undefined);
   return expectedSourceRows.every((source) => sources.includes(source));
+}
+
+function isValidTripFacts(value: unknown) {
+  if (!isRecord(value)) return false;
+
+  return typeof value.destination === "string" &&
+    typeof value.locality === "string" &&
+    isIsoDate(value.startDate) &&
+    isIsoDate(value.endDate) &&
+    typeof value.travelers === "number" &&
+    Number.isInteger(value.travelers) &&
+    value.travelers > 0 &&
+    Array.isArray(value.evidenceArtifactIds) &&
+    value.evidenceArtifactIds.every((id) => typeof id === "string") &&
+    typeof value.confidence === "number" &&
+    value.confidence >= 0 &&
+    value.confidence <= 1 &&
+    typeof value.rationale === "string";
+}
+
+function isIsoDate(value: unknown) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }

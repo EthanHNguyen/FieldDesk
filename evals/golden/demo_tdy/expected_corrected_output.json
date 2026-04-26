@@ -1,4 +1,9 @@
 {
+  "tripFacts": {
+    "startDate": "2026-06-10",
+    "endDate": "2026-06-14",
+    "travelers": 10
+  },
   "readiness": {
     "score": {
       "min": 88,

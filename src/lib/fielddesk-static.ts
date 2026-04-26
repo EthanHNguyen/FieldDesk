@@ -8,6 +8,17 @@ export const missionSummary = {
   travelers: "10"
 };
 
+export const tripFacts = {
+  destination: "Demo Training Site",
+  locality: "Columbus, GA",
+  startDate: "2026-06-10",
+  endDate: "2026-06-14",
+  travelers: 10,
+  evidenceArtifactIds: ["sp-001"],
+  confidence: 0.95,
+  rationale: "Extracted from mission intent and training order artifacts."
+};
+
 export const workflowSteps = [
   "Capture Intent",
   "Search Sources",
@@ -182,4 +193,50 @@ export const packageRows = [
   "Funding memo attached",
   "Approval email attached",
   "Supporting documents packaged"
+];
+
+export const agentTrace = [
+  {
+    stepIndex: 1,
+    kind: "plan",
+    label: "Initialize workflow",
+    observationSummary: "Mission intent captured; workflow steps initialized.",
+    status: "Found"
+  },
+  {
+    stepIndex: 2,
+    kind: "tool_call",
+    label: "Search Outlook",
+    toolName: "searchSource",
+    argsSummary: "source=Outlook, query=approval",
+    observationSummary: "Found approval email and reviewer note.",
+    artifactIds: ["outlook-001"],
+    status: "Found"
+  },
+  {
+    stepIndex: 3,
+    kind: "tool_call",
+    label: "Search SharePoint",
+    toolName: "searchSource",
+    argsSummary: "source=SharePoint, query=training order",
+    observationSummary: "Found training order and roster.",
+    artifactIds: ["sp-001", "sp-002"],
+    status: "Found"
+  },
+  {
+    stepIndex: 4,
+    kind: "tool_call",
+    label: "Calculate Per Diem",
+    toolName: "calculatePerDiem",
+    argsSummary: "travelers=10, location=Demo Training Site",
+    observationSummary: "Deterministic per diem verification successful: $7,340.",
+    status: "Found"
+  },
+  {
+    stepIndex: 5,
+    kind: "synthesis",
+    label: "Generate Readiness",
+    observationSummary: "Evidence map built; 3 gaps identified (roster, funding, justification).",
+    status: "Weak"
+  }
 ];

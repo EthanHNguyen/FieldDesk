@@ -91,6 +91,19 @@ export type ActivityEvent = {
   status: Status;
 };
 
+export type AgentTraceStepKind = "plan" | "tool_call" | "observation" | "synthesis" | "verification";
+
+export type AgentTraceStep = {
+  stepIndex: number;
+  kind: AgentTraceStepKind;
+  label: string;
+  toolName?: string;
+  argsSummary?: string;
+  observationSummary?: string;
+  artifactIds?: string[];
+  status: Status;
+};
+
 export type AgentEvidenceItem = {
   requirementId: string;
   requirement: string;
@@ -153,8 +166,20 @@ export type AgentGeneratedWorkProduct = {
   }>;
 };
 
+export type TripFacts = {
+  destination: string;
+  locality: string;
+  startDate: string;
+  endDate: string;
+  travelers: number;
+  evidenceArtifactIds: string[];
+  confidence: number;
+  rationale: string;
+};
+
 export type FieldDeskAgentObjectOutput = {
   mission: MissionSummary;
+  tripFacts: TripFacts;
   sourceSearchResults: Array<{
     source: string;
     finding: string;
@@ -166,6 +191,7 @@ export type FieldDeskAgentObjectOutput = {
   readiness: AgentReadinessAssessment;
   generatedWorkProduct: AgentGeneratedWorkProduct;
   activityTrail: ActivityEvent[];
+  agentTrace: AgentTraceStep[];
 };
 
 export type FieldDeskAgentRun = {
@@ -185,6 +211,7 @@ export type FieldDeskAgentRun = {
   dtsRows: ReadonlyArray<DtsExportRow>;
   packageRows: ReadonlyArray<string>;
   activityTrail: ReadonlyArray<ActivityEvent>;
+  agentTrace: ReadonlyArray<AgentTraceStep>;
   objectOutput: FieldDeskAgentObjectOutput;
 };
 
@@ -199,6 +226,7 @@ export type AgentRunEnvelope = {
   input: AgentRunInput;
   output: FieldDeskAgentRun;
   events: ReadonlyArray<ActivityEvent>;
+  agentTrace: ReadonlyArray<AgentTraceStep>;
 };
 
 export type AgentRunApiResponse =

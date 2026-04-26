@@ -1,135 +1,124 @@
 # FieldDesk TODO
 
-## Backend API Readiness
+Goal: keep the hackathon demo reliable while making the backend credible to technical judges. FieldDesk should stay agent-first: the model handles semantic extraction and workflow reasoning; code handles source access, schema validation, arithmetic, and auditability.
 
-- [x] Introduce workflow session and agent run concepts.
-  - `WorkflowSession`: full user journey.
-  - `AgentRun`: one recomputation over current session state.
-  - `CorrectionEvent`: user action that changes evidence or assumptions.
-- [x] Add run envelope fields:
-  - `sessionId`
-  - `runId`
-  - `previousRunId`
-  - `mode`
-  - `trigger`
-  - `status`
-  - `createdAt`
-  - `input`
-  - `output`
-  - `events`
-- [x] Refactor `/api/agent-runs` into:
-  - request validation
-  - session/input loader
-  - agent dispatcher
-  - adapter call
-  - response validation
-  - structured error response
-- [x] Add adapter files:
-  - `src/lib/agent-adapters/mock-agent.ts`
-  - `src/lib/agent-adapters/openai-agent.ts`
-  - `src/lib/agent-adapters/run-agent.ts`
+## Completed
+
+- [x] Build the TypeScript / Next.js `/api/agent-runs` route.
 - [x] Preserve `FIELD_DESK_AGENT_MODE=mock` as deterministic fallback.
-- [x] Add `FIELD_DESK_AGENT_MODE=openai` adapter path.
+- [x] Preserve `FIELD_DESK_AGENT_MODE=openai` for live OpenRouter runs.
+- [x] Validate agent run requests and responses.
+- [x] Keep `.env` ignored.
+- [x] Use static fixture sources for Outlook, SharePoint, GSA, JTR, Unit Checklist, Local SOP, and uploaded corrections.
+- [x] Add object-native agent output alongside legacy UI table fields.
+- [x] Add `TripFacts` to object output:
+  - `destination`
+  - `locality`
+  - `startDate`
+  - `endDate`
+  - `travelers`
+  - `evidenceArtifactIds`
+  - `confidence`
+  - `rationale`
+- [x] Remove regex date parsing from deterministic per diem math.
+- [x] Make deterministic per diem math consume structured `TripFacts`.
+- [x] Add runtime validation for ISO dates, positive traveler counts, and date order.
+- [x] Add fixture-backed typed tools:
+  - `searchSource`
+  - `readArtifact`
+  - `lookupGsaRate`
+  - `calculatePerDiem`
+  - `retrievePolicyReference`
+- [x] Enforce source selection and correction state in fixture tools.
+- [x] Add `agentTrace` types and include trace on run/envelope responses.
+- [x] Add mock trace steps for demo-critical phases.
+- [x] Update evals to check structured `tripFacts`.
+- [x] Add deterministic math tests.
+- [x] Add fixture tool tests.
+- [x] Add backend architecture design doc.
 
-## Schemas And Contracts
+## Current MVP Hardening
 
-- [x] Add object-native backend output alongside legacy UI fields.
-- [x] Add schema validation for both request and response.
-- [x] Define core output schemas:
-  - `EvidenceMap`
-  - `GapFinding`
-  - `ConflictFinding`
-  - `ReviewerObjection`
-  - `ReadinessAssessment`
-  - `GeneratedWorkProduct`
-- [x] Add citation/source references to evidence items.
-- [x] Add confidence and rationale fields where useful.
-- [x] Improve client error handling so API validation, unsupported mode, model failure, and malformed output are distinguishable.
-
-## Golden Dataset And Evals
-
-- [x] Create `evals/golden/demo_tdy/`.
-- [x] Add golden scenario files:
-  - `input.json`
-  - `sources/outlook_messages.json`
-  - `sources/sharepoint_documents.json`
-  - `sources/gsa_per_diem_fixture.json`
-  - `sources/jtr_excerpt.md`
-  - `sources/unit_checklist.md`
-  - `sources/local_sop.md`
-  - `sources/uploaded_documents.json`
-  - `expected_initial_output.json`
-  - `corrections.json`
-  - `expected_corrected_output.json`
-  - `rubric.json`
-- [x] Evaluate initial run facts:
-  - Demo Training Site destination.
-  - June 10-14 dates.
-  - 10 travelers.
-  - approval email found.
-  - training order found.
-  - `roster_v2.csv` found.
-  - GSA per diem found.
-  - JTR references found.
-  - funding source missing.
-  - traveler count conflict detected.
-  - rental vehicle justification weak.
-  - readiness score near 72.
-  - risk is High.
-  - reviewer objections include funding and traveler count.
-- [x] Evaluate corrected run facts:
-  - `roster_v3_corrected.csv` accepted.
-  - `funding_memo.pdf` accepted.
-  - rental vehicle justification accepted.
-  - traveler count resolved.
-  - funding found.
-  - rental vehicle improved.
-  - readiness score near 91.
-  - risk is Low.
-  - final work product includes packet summary, action list, reviewer notes, source list.
-- [x] Use exact checks for IDs/statuses/facts.
-- [x] Use range checks for readiness score.
-- [x] Use contains checks for prose.
-- [x] Avoid exact prose matching for model-generated summaries.
-
-## Testing
-
-- [x] Add unit tests for the mock agent adapter.
-- [x] Add API contract tests for valid and invalid agent run requests.
-- [x] Add tests for unsupported `FIELD_DESK_AGENT_MODE`.
-- [x] Add response schema validation tests.
-- [ ] Add agent contract tests shared by mock and OpenAI adapters.
-- [ ] Add failure-mode tests:
+- [x] Make `agentTrace` required in `validateAgentRunOutput`.
+- [x] Add exact eval checks for trace phases:
+  - source search
+  - per diem calculation
+  - final synthesis
+- [x] Add eval checks for deterministic per diem output:
+  - total includes `$7,340`
+  - summary includes `4 nights`
+  - summary includes `5 travel days`
+  - `mathVerified === true`
+- [ ] Audit OpenRouter normalization so it never fabricates evidence that should fail validation.
+- [ ] Add tests for missing/disabled sources:
+  - [ ] GSA disabled means no math verification.
+  - [ ] SharePoint disabled means no training order/roster evidence.
+  - [x] corrected roster is unavailable before roster correction.
+  - [x] funding memo is unavailable before funding correction.
+- [ ] Add API failure-mode tests:
   - malformed request
-  - malformed model output
-  - missing API key
   - unsupported mode
-  - model timeout
-- [ ] Extend Playwright only for demo-critical paths.
+  - missing API key in OpenRouter mode
+  - malformed model output
 
-## LLM Agent Integration
+## Autonomous Agent Loop
 
-- [x] Implement OpenAI adapter behind the dispatcher.
-- [x] Keep connectors mocked.
-- [x] Pass controlled mock source context to the agent.
-- [x] Require structured output.
-- [x] Validate model output before returning to UI.
-- [x] Keep mock mode as test oracle and fallback.
+The repo is not yet using a true model-driven tool loop in the active API path. Do not mark this complete until `/api/agent-runs` can exercise it behind an explicit mode and the output passes the same validation/evals as the current adapter.
 
-## Demo Polish
+- [ ] Add `FIELD_DESK_AGENT_MODE=tool-loop`.
+- [ ] Define `AgentRunState`:
+  - input
+  - selected sources
+  - observations
+  - artifacts read
+  - trip facts
+  - per diem verification
+  - policy references
+  - evidence map draft
+  - open issues
+  - trace
+- [ ] Add model decision schema:
+  - `tool_call`
+  - `finish`
+- [ ] Validate tool arguments before execution.
+- [ ] Execute tools only through the fixture tool context.
+- [ ] Enforce max steps.
+- [ ] Synthesize `FieldDeskAgentObjectOutput`, then convert through the same adapter path as OpenRouter mode.
+- [ ] Add tests:
+  - loop cannot exceed max steps
+  - invalid tool args fail closed
+  - unavailable artifacts cannot be read
+  - final output passes `validateAgentRunOutput`
 
-- [ ] Make the activity feed match the PRD demo script.
-- [x] Make the value moment obvious: FieldDesk catches avoidable administrative failure before review.
-- [x] Ensure final work product includes:
-  - evidence map
-  - readiness report
-  - gap summary
-  - conflict summary
-  - reviewer questions
-  - human action list
-  - packet summary
-  - rental vehicle justification
-  - per diem estimate
-  - source list
-  - final routing checklist
-- [x] Keep real Outlook, SharePoint, GSA, DTS, auth, and RBAC out of scope for MVP.
+## Demo Verification
+
+- [x] Run full local suite:
+  - [x] `npm run lint`
+  - [x] `npm run build`
+  - [x] `npm run test:api`
+  - [x] `npm run test:rules`
+  - [x] `npm run test:tools`
+  - [x] `npm run test:e2e`
+  - [x] `npm run eval:mock`
+  - [x] `npm run eval:openrouter`
+- [ ] Start the app on `localhost:3000`.
+- [ ] Capture screenshots for each screen.
+- [ ] Verify:
+  - top classification banner only
+  - no bottom banner
+  - source rows show all selected sources
+  - Agent Run loading state advances during latency
+  - corrected run changes readiness appropriately
+  - per diem shows deterministic verification
+  - citations/policy references are visible
+
+## Defer Until After Demo
+
+- [ ] Real Outlook OAuth.
+- [ ] Real SharePoint Graph integration.
+- [ ] Live GSA API integration.
+- [ ] Durable database persistence.
+- [ ] RBAC/auth.
+- [ ] Prompt caching.
+- [ ] Full external agent framework migration.
+- [ ] Multi-scenario generalized workflow library.

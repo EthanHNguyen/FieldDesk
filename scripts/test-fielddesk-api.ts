@@ -46,6 +46,11 @@ async function main() {
   assert.ok(run.objectOutput.findings.some((finding) => finding.id === "funding" && finding.status === "Missing"));
   assert.deepEqual(run.sourceSearchResults.map(([source]) => source), ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"]);
   assert.deepEqual(run.objectOutput.sourceSearchResults.map((row) => row.source), ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"]);
+  assert.ok(run.agentTrace && run.agentTrace.length > 0);
+  assert.ok(run.objectOutput.agentTrace && run.objectOutput.agentTrace.length > 0);
+  assert.equal(run.objectOutput.tripFacts?.startDate, "2026-06-10");
+  assert.equal(run.objectOutput.tripFacts?.endDate, "2026-06-14");
+  assert.equal(run.objectOutput.tripFacts?.travelers, 10);
   assert.equal(run.objectOutput.evidenceMap.find((item) => item.requirement === "Per diem estimate")?.mathVerified, true);
   assert.match(run.objectOutput.evidenceMap.find((item) => item.requirement === "Per diem estimate")?.evidenceSummary ?? "", /total \$7,340/);
   assert.ok(run.dtsRows.some(([field, value]) => field === "Per Diem" && value.includes("$7,340")));
