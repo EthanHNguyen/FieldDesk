@@ -20,6 +20,13 @@ The failure mode is familiar: the packet comes back, the NCO fixes one issue, th
 
 FieldDesk is not a regulation chatbot. It is an agentic workflow platform for administrative readiness.
 
+## SCSP Hackathon - Why FieldDesk
+
+- **Novelty:** FieldDesk is not a regulation chatbot, form filler, or static checklist. It is an agentic workflow platform for administrative readiness that turns scattered admin context into ready-to-route work.
+- **Technical difficulty:** The demo combines agent runtime with tool calling, mocked enterprise connectors, document/email understanding, evidence mapping, conflict detection, deterministic calculations, policy-level citations, structured outputs, and LLM-as-judge evals.
+- **National impact:** FieldDesk directly targets the bureaucratic tail that keeps warfighters behind desks instead of in the field. TDY is the wedge, but the platform pattern applies to leave, supply, maintenance, range requests, training approvals, personnel actions, deployment paperwork, housing, awards, and evaluations.
+- **Problem-solution fit:** Junior NCOs do not need another search box. They need a system that turns scattered evidence into a route-ready packet: what matters, what is missing, what will get returned, and what action to take next.
+
 ## Demo
 
 ![FieldDesk workflows dashboard](./screenshots/00-workflows-dashboard.png)
@@ -50,11 +57,11 @@ The repeatable pattern is:
 4. Surface gaps, conflicts, and reviewer objections.
 5. Produce ready-to-route work for human review.
 
-- **Template-driven:** Units can begin with workflow templates for TDY, leave, range requests, maintenance packets, supply actions, awards, evaluations, housing, or deployment paperwork.
-- **Adapt to local process:** Each workflow can encode the unit's source systems, checklist expectations, SOP references, policy excerpts, required artifacts, and routing risks.
-- **Local/offline-first:** Workflows are designed around controlled local context and synthetic/demo fixtures today; the same architecture can run against cached docs, local SOPs, exported inboxes, offline policy packs, and approved local models when connectivity is limited or unavailable.
-- **Share across the unit:** A strong workflow can become a reusable playbook, so one admin expert's process helps every junior NCO in the formation.
-- **Scale across the Department:** TDY is the wedge. The same pattern can expand across the administrative surface of the force.
+- **Template-driven:** Start from TDY, leave, range, maintenance, supply, awards, evaluations, housing, or deployment workflows.
+- **Adaptable:** Encodes local SOPs, unit checklists, source systems, required artifacts, and routing risks.
+- **Disconnected-ready:** Runs against controlled context, cached docs, exported inboxes, offline policy packs, and approved local models.
+- **Shareable:** Turns a strong admin process into a reusable playbook for the formation.
+- **Department-scale:** TDY is the wedge; the same pattern can expand across the administrative surface of the force.
 
 This local/offline-first posture shaped the design: FieldDesk uses explicit source tools instead of open web search, validates structured outputs, keeps deterministic math outside the model, treats source availability as a product boundary, and can swap live integrations for local fixtures or cached system exports.
 
@@ -71,13 +78,6 @@ FieldDesk uses synthetic data to mock the systems a real deployment would connec
 - **Uploaded files:** mocked corrected roster and funding memo artifacts staged by the user during the correction flow.
 
 The MVP intentionally mocks connectors instead of requiring live Outlook, SharePoint, GSA, or DTS access. The point is to prove the workflow: agent-led evidence gathering, gap detection, correction, and review-ready output.
-
-## SCSP Hackathon - Why FieldDesk
-
-- **Novelty:** FieldDesk is not a regulation chatbot, form filler, or static checklist. It is an agentic workflow platform for administrative readiness that turns scattered admin context into ready-to-route work.
-- **Technical difficulty:** The demo combines agent runtime with tool calling, mocked enterprise connectors, document/email understanding, evidence mapping, conflict detection, deterministic calculations, policy-level citations, structured outputs, and LLM-as-judge evals.
-- **National impact:** FieldDesk directly targets the bureaucratic tail that keeps warfighters behind desks instead of in the field. TDY is the wedge, but the platform pattern applies to leave, supply, maintenance, range requests, training approvals, personnel actions, deployment paperwork, housing, awards, and evaluations.
-- **Problem-solution fit:** The user does not need another search box. They need to know what matters, what is missing, what will be returned, and what to do next.
 
 ## Architecture
 
