@@ -44,6 +44,18 @@ async function main() {
   assert.equal(run.mission.destination, "Demo Training Site");
   assert.equal(run.objectOutput.mission.destination, "Demo Training Site");
   assert.ok(run.objectOutput.evidenceMap.length > 0);
+  assert.deepEqual(run.objectOutput.evidenceMap.map((item) => item.requirement), [
+    "Mission purpose",
+    "Travel dates",
+    "Destination",
+    "Traveler roster",
+    "Approval",
+    "Per diem estimate",
+    "Policy reference",
+    "Unit checklist",
+    "Rental vehicle justification",
+    "Funding source"
+  ]);
   assert.ok(run.objectOutput.findings.some((finding) => finding.id === "funding" && finding.status === "Missing"));
   assert.deepEqual(run.sourceSearchResults.map(([source]) => source), ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"]);
   assert.deepEqual(run.objectOutput.sourceSearchResults.map((row) => row.source), ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"]);

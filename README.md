@@ -4,6 +4,8 @@
 
 The military does not just run on orders. It runs on the administrative work that makes orders executable.
 
+> Public demo note: FieldDesk uses synthetic data only. This repository does not contain CUI, classified information, real personnel data, live system credentials, operational records, or official government output.
+
 ## Submission
 
 - **Team name:** FieldDesk
@@ -67,7 +69,7 @@ This local/offline-first posture shaped the design: FieldDesk uses explicit sour
 
 ## Datasets And APIs
 
-FieldDesk uses synthetic data to mock the systems a real deployment would connect to. This keeps the hackathon demo public-demo safe and shareable, and fast while still showing the product motion across the real admin surface area.
+FieldDesk uses synthetic data to mock the systems a real deployment would connect to. This keeps the hackathon demo public-demo safe and shareable while still showing the product motion across the real admin surface area.
 
 - **Outlook:** mocked approval emails, reviewer notes, funding threads, and coordination messages.
 - **SharePoint:** mocked training orders, rosters, unit checklists, prior packet files, and corrected uploads.

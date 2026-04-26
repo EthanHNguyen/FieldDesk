@@ -5,14 +5,14 @@ test("dashboard opens TDY readiness and completes the static workflow", async ({
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
-  const tdyCard = page.locator(".workflowCard", { hasText: "TDY Travel Readiness" });
+  const tdyCard = page.locator(".workflowCard", { hasText: "TDY Readiness" });
   await expect(tdyCard).toBeVisible();
   await expect(page.getByText("Demo Training Site")).toHaveCount(0);
 
   await tdyCard.getByRole("button", { name: /Open/ }).click();
 
   await expect(page.getByRole("heading", { name: /Mission Intent/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "TDY Travel Readiness" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "TDY Readiness" })).toBeVisible();
   await expect(page.locator("textarea")).toHaveValue(/Demo Training Site/);
   await page.getByRole("button", { name: /Start Analysis/ }).click();
 
@@ -48,7 +48,7 @@ test("manual issue resolution stages selected actions before recompute", async (
   await page.goto("/");
   await page.waitForLoadState("networkidle");
 
-  await page.locator(".workflowCard", { hasText: "TDY Travel Readiness" }).getByRole("button", { name: /Open/ }).click();
+  await page.locator(".workflowCard", { hasText: "TDY Readiness" }).getByRole("button", { name: /Open/ }).click();
   await page.getByRole("button", { name: /Start Analysis/ }).click();
   await expect.poll(() => agentRunRequests).toBe(1);
   await page.getByRole("button", { name: "Build Evidence Map" }).click();
@@ -86,7 +86,7 @@ test("source toggles degrade evidence through the agent API", async ({ page }) =
   await page.goto("/");
   await page.waitForLoadState("networkidle");
 
-  await page.locator(".workflowCard", { hasText: "TDY Travel Readiness" }).getByRole("button", { name: /Open/ }).click();
+  await page.locator(".workflowCard", { hasText: "TDY Readiness" }).getByRole("button", { name: /Open/ }).click();
   await page.getByRole("button", { name: "GSA" }).click();
   await page.getByRole("button", { name: /Start Analysis/ }).click();
 
