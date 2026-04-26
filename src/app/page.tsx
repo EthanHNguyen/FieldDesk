@@ -40,8 +40,8 @@ import {
   Wrench,
   type LucideIcon
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { runFieldDeskAgent } from "../lib/fielddesk-agent";
+import { useEffect, useMemo, useState } from "react";
+import { requestFieldDeskAgentRun } from "../lib/fielddesk-client";
 import {
   expectedOutputs,
   missionIntent,
@@ -67,18 +67,35 @@ export default function Home() {
   const [vehicleJustification, setVehicleJustification] = useState(
     "Rental vehicles are required to move personnel between lodging, training site, and required training support locations due to schedule constraints and lack of available unit transportation."
   );
-  const agentRun = useMemo(
-    () =>
-      runFieldDeskAgent({
-        intent,
-        selectedSources: [...sourceToggles],
-        resolutions: resolution,
-        vehicleJustification
-      }),
-    [intent, resolution, vehicleJustification]
-  );
-  const foundCount = useMemo(() => agentRun.evidenceMap.filter((row) => row[3] === "Found" || row[3] === "Resolved").length, [agentRun.evidenceMap]);
+  const [agentRun, setAgentRun] = useState<FieldDeskAgentRun | null>(null);
+  const [agentRunError, setAgentRunError] = useState<string | null>(null);
+  const selectedSources = useMemo(() => [...sourceToggles], []);
+  const foundCount = useMemo(() => agentRun?.evidenceMap.filter((row) => row[3] === "Found" || row[3] === "Resolved").length ?? 0, [agentRun]);
   const allIssuesResolved = resolution.roster && resolution.funding && resolution.justification;
+
+  useEffect(() => {
+    let active = true;
+
+    requestFieldDeskAgentRun({
+      intent,
+      selectedSources,
+      resolutions: resolution,
+      vehicleJustification
+    })
+      .then((run) => {
+        if (!active) return;
+        setAgentRun(run);
+        setAgentRunError(null);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setAgentRunError(error instanceof Error ? error.message : "Agent run failed.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [intent, resolution, selectedSources, vehicleJustification]);
 
   function advance(next: Step) {
     setStep(next);
@@ -125,9 +142,10 @@ export default function Home() {
             <div className="workspace">
               <section className="mainPanel">
                 {step === 1 && <CaptureIntent intent={intent} setIntent={setIntent} onStart={() => advance(2)} />}
-                {step === 2 && <SearchSources intent={intent} run={agentRun} onNext={() => advance(3)} />}
-                {step === 3 && <EvidenceMap foundCount={foundCount} run={agentRun} onNext={() => advance(4)} />}
-                {step === 4 && (
+                {step !== 1 && !agentRun && <AgentRunState error={agentRunError} />}
+                {step === 2 && agentRun && <SearchSources intent={intent} run={agentRun} onNext={() => advance(3)} />}
+                {step === 3 && agentRun && <EvidenceMap foundCount={foundCount} run={agentRun} onNext={() => advance(4)} />}
+                {step === 4 && agentRun && (
                   <SurfaceGaps
                     activeIssue={activeIssue}
                     allIssuesResolved={allIssuesResolved}
@@ -141,15 +159,27 @@ export default function Home() {
                     onRecompute={() => advance(5)}
                   />
                 )}
-                {step === 5 && <ResolveRecompute run={agentRun} onExport={() => advance(6)} />}
-                {step === 6 && <ExportDts run={agentRun} />}
+                {step === 5 && agentRun && <ResolveRecompute run={agentRun} onExport={() => advance(6)} />}
+                {step === 6 && agentRun && <ExportDts run={agentRun} />}
               </section>
-              <MissionRail run={agentRun} step={step} resolved={resolved} />
+              {agentRun && <MissionRail run={agentRun} step={step} resolved={resolved} />}
             </div>
           </>
         )}
       </div>
     </main>
+  );
+}
+
+function AgentRunState({ error }: { error: string | null }) {
+  return (
+    <Card>
+      <h2>
+        <Icon name="Activity" /> Agent Run
+      </h2>
+      <p className="muted">{error ?? "Preparing workflow analysis..."}</p>
+      {error && <StatusPill status="High" label="API boundary unavailable" />}
+    </Card>
   );
 }
 
