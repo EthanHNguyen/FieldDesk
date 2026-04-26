@@ -9,6 +9,7 @@
     "lint": "eslint",
     "eval:mock": "tsx scripts/eval-fielddesk.ts mock",
     "eval:openrouter": "tsx scripts/eval-fielddesk.ts openai judge",
+    "test:api": "tsx scripts/test-fielddesk-api.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -33,17 +33,17 @@
 
 ## Schemas And Contracts
 
-- [ ] Replace tuple-heavy backend outputs with object schemas.
+- [x] Add object-native backend output alongside legacy UI fields.
 - [x] Add schema validation for both request and response.
-- [ ] Define core output schemas:
+- [x] Define core output schemas:
   - `EvidenceMap`
   - `GapFinding`
   - `ConflictFinding`
   - `ReviewerObjection`
   - `ReadinessAssessment`
   - `GeneratedWorkProduct`
-- [ ] Add citation/source references to evidence items.
-- [ ] Add confidence and rationale fields where useful.
+- [x] Add citation/source references to evidence items.
+- [x] Add confidence and rationale fields where useful.
 - [x] Improve client error handling so API validation, unsupported mode, model failure, and malformed output are distinguishable.
 
 ## Golden Dataset And Evals
@@ -94,10 +94,10 @@
 
 ## Testing
 
-- [ ] Add unit tests for the mock agent adapter.
-- [ ] Add API route tests for valid and invalid `/api/agent-runs` requests.
-- [ ] Add tests for unsupported `FIELD_DESK_AGENT_MODE`.
-- [ ] Add response schema validation tests.
+- [x] Add unit tests for the mock agent adapter.
+- [x] Add API contract tests for valid and invalid agent run requests.
+- [x] Add tests for unsupported `FIELD_DESK_AGENT_MODE`.
+- [x] Add response schema validation tests.
 - [ ] Add agent contract tests shared by mock and OpenAI adapters.
 - [ ] Add failure-mode tests:
   - malformed request
@@ -110,17 +110,17 @@
 ## LLM Agent Integration
 
 - [x] Implement OpenAI adapter behind the dispatcher.
-- [ ] Keep connectors mocked.
+- [x] Keep connectors mocked.
 - [x] Pass controlled mock source context to the agent.
 - [x] Require structured output.
 - [x] Validate model output before returning to UI.
-- [ ] Keep mock mode as test oracle and fallback.
+- [x] Keep mock mode as test oracle and fallback.
 
 ## Demo Polish
 
 - [ ] Make the activity feed match the PRD demo script.
-- [ ] Make the value moment obvious: FieldDesk catches avoidable administrative failure before review.
-- [ ] Ensure final work product includes:
+- [x] Make the value moment obvious: FieldDesk catches avoidable administrative failure before review.
+- [x] Ensure final work product includes:
   - evidence map
   - readiness report
   - gap summary
@@ -132,4 +132,4 @@
   - per diem estimate
   - source list
   - final routing checklist
-- [ ] Keep real Outlook, SharePoint, GSA, DTS, auth, and RBAC out of scope for MVP.
+- [x] Keep real Outlook, SharePoint, GSA, DTS, auth, and RBAC out of scope for MVP.

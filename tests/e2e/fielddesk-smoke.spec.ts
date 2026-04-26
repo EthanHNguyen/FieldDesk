@@ -40,28 +40,39 @@ test("dashboard opens TDY readiness and completes the static workflow", async ({
 });
 
 test("manual issue resolution stages selected actions before recompute", async ({ page }) => {
+  let agentRunRequests = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/api/agent-runs")) agentRunRequests += 1;
+  });
+
   await page.goto("/");
   await page.waitForLoadState("networkidle");
 
   await page.locator(".workflowCard", { hasText: "TDY Travel Readiness" }).getByRole("button", { name: /Open/ }).click();
   await page.getByRole("button", { name: /Start Analysis/ }).click();
+  await expect.poll(() => agentRunRequests).toBe(1);
   await page.getByRole("button", { name: "Build Evidence Map" }).click();
   await page.getByRole("button", { name: "Surface Gaps" }).click();
 
   await expect(page.getByRole("heading", { name: /Readiness Assessment/ })).toBeVisible();
   await page.getByRole("button", { name: "Stage Selected Action" }).click();
+  await expect.poll(() => agentRunRequests).toBe(1);
   await expect(page.getByRole("button", { name: "Funding source missing" })).toContainText("Missing");
 
   await page.getByRole("button", { name: "Stage Selected Action" }).click();
+  await expect.poll(() => agentRunRequests).toBe(1);
   await expect(page.getByRole("button", { name: "Rental vehicle justification weak" })).toContainText("Weak");
 
   await page.getByLabel("Rental vehicle justification").fill(
     "Rental vehicles are required because the training site, lodging, and equipment pickup points are separated and no unit shuttle is available during the training window."
   );
+  await expect.poll(() => agentRunRequests).toBe(1);
   await page.getByRole("button", { name: "Stage Selected Action" }).click();
+  await expect.poll(() => agentRunRequests).toBe(1);
 
   await expect(page.getByRole("button", { name: "Recompute Readiness" })).toBeVisible();
   await page.getByRole("button", { name: "Recompute Readiness" }).click();
+  await expect.poll(() => agentRunRequests).toBe(2);
 
   await expect(page.getByRole("heading", { name: /Updated Readiness/ })).toBeVisible();
   await expect(page.getByText("91")).toBeVisible();

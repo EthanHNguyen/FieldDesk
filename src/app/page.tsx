@@ -40,7 +40,7 @@ import {
   Wrench,
   type LucideIcon
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { requestFieldDeskAgentRun } from "../lib/fielddesk-client";
 import {
   expectedOutputs,
@@ -72,29 +72,35 @@ export default function Home() {
   const [selectedSources, setSelectedSources] = useState<string[]>(() => [...sourceToggles]);
   const allIssuesResolved = resolution.roster && resolution.funding && resolution.justification;
 
-  useEffect(() => {
-    let active = true;
+  async function submitAgentRun({
+    nextStep,
+    nextResolution = resolution,
+    trigger
+  }: {
+    nextStep: Step;
+    nextResolution?: ResolutionState;
+    trigger: "initial_analysis" | "correction_staged" | "source_changed" | "justification_edited";
+  }) {
+    setStep(nextStep);
+    setResolved(nextStep >= 5);
+    setAgentRun(null);
+    setAgentRunError(null);
 
-    requestFieldDeskAgentRun({
-      intent,
-      selectedSources,
-      resolutions: resolution,
-      vehicleJustification
-    })
-      .then((run) => {
-        if (!active) return;
-        setAgentRun(run);
-        setAgentRunError(null);
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setAgentRunError(error instanceof Error ? error.message : "Agent run failed.");
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [intent, resolution, selectedSources, vehicleJustification]);
+    try {
+      const run = await requestFieldDeskAgentRun(
+        {
+          intent,
+          selectedSources,
+          resolutions: nextResolution,
+          vehicleJustification
+        },
+        trigger
+      );
+      setAgentRun(run);
+    } catch (error: unknown) {
+      setAgentRunError(error instanceof Error ? error.message : "Agent run failed.");
+    }
+  }
 
   function advance(next: Step) {
     setStep(next);
@@ -110,21 +116,22 @@ export default function Home() {
     setStep(1);
     setResolved(false);
     setResolution(initialResolutionState);
+    setAgentRun(null);
+    setAgentRunError(null);
     setActiveIssue("roster");
     setSelectedSources([...sourceToggles]);
   }
 
   function stageResolution(key: IssueId) {
-    setAgentRun(null);
     setResolution((current) => ({ ...current, [key]: true }));
     if (key === "roster") setActiveIssue("funding");
     if (key === "funding") setActiveIssue("justification");
   }
 
   function applyDemoCorrections() {
-    setAgentRun(null);
-    setResolution({ roster: true, funding: true, justification: true });
-    advance(5);
+    const nextResolution = { roster: true, funding: true, justification: true };
+    setResolution(nextResolution);
+    void submitAgentRun({ nextStep: 5, nextResolution, trigger: "correction_staged" });
   }
 
   return (
@@ -149,7 +156,7 @@ export default function Home() {
                     selectedSources={selectedSources}
                     setIntent={setIntent}
                     setSelectedSources={setSelectedSources}
-                    onStart={() => advance(2)}
+                    onStart={() => void submitAgentRun({ nextStep: 2, trigger: "initial_analysis" })}
                   />
                 )}
                 {step !== 1 && !agentRun && <AgentRunState error={agentRunError} />}
@@ -166,7 +173,7 @@ export default function Home() {
                     onJustificationChange={setVehicleJustification}
                     onResolve={applyDemoCorrections}
                     onStageResolution={stageResolution}
-                    onRecompute={() => advance(5)}
+                    onRecompute={() => void submitAgentRun({ nextStep: 5, trigger: "correction_staged" })}
                   />
                 )}
                 {step === 5 && agentRun && <ResolveRecompute run={agentRun} onExport={() => advance(6)} />}
@@ -569,6 +576,22 @@ function SurfaceGaps({
           <StatusMatrix items={run.readiness.areas} />
         </div>
       </Card>
+      <Card>
+        <GapTitle number="2" title="Return Risk" tone="red" />
+        <p className="muted">This packet is likely to come back from review unless the open blockers are staged and recomputed.</p>
+        <div className="packageList">
+          {run.issues
+            .filter((issue) => !["Found", "Improved", "Resolved"].includes(issue.status))
+            .map((issue) => (
+              <div key={issue.id}>
+                <span>
+                  <Icon name="Alert" /> {issue.title}
+                </span>
+                <StatusPill status={issue.status} />
+              </div>
+            ))}
+        </div>
+      </Card>
       <IssueResolutionWorkspace
         activeIssue={activeIssue}
         justification={justification}
@@ -842,6 +865,8 @@ function ResolveRecompute({ run, onExport }: { run: FieldDeskAgentRun; onExport:
 }
 
 function ExportDts({ run }: { run: FieldDeskAgentRun }) {
+  const workProduct = run.objectOutput.generatedWorkProduct;
+
   return (
     <div className="stack">
       <div className="routeBanner">
@@ -853,6 +878,36 @@ function ExportDts({ run }: { run: FieldDeskAgentRun }) {
           <span>DTS handoff package prepared.</span>
         </div>
       </div>
+      <Card>
+        <h2>Packet Summary</h2>
+        <p>{workProduct.packetSummary}</p>
+        <Divider />
+        <h2>Rental Vehicle Justification</h2>
+        <p>{workProduct.rentalVehicleJustification}</p>
+      </Card>
+      <Card>
+        <h2>Evidence And Review Notes</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Requirement</th>
+              <th>Evidence</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {run.objectOutput.evidenceMap.map((item) => (
+              <tr key={item.requirementId}>
+                <td>{item.requirement}</td>
+                <td>{item.evidenceSummary}</td>
+                <td>
+                  <StatusPill status={item.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
       <Card>
         <h2>DTS Authorization Draft</h2>
         <p className="muted">Mock export showing how validated information maps into DTS.</p>
@@ -884,6 +939,18 @@ function ExportDts({ run }: { run: FieldDeskAgentRun }) {
                 </span> {row}
               </span>
               <StatusPill status="Found" label="Complete" />
+            </div>
+          ))}
+        </div>
+        <Divider />
+        <h2>Source List</h2>
+        <div className="packageList">
+          {run.objectOutput.sourceSearchResults.map((source) => (
+            <div key={`${source.source}-${source.finding}`}>
+              <span>
+                <Icon name={source.source} /> {source.source}
+              </span>
+              <StatusPill status={source.finding.includes("disabled") ? "Missing" : "Found"} label={source.finding.includes("disabled") ? "Disabled" : "Included"} />
             </div>
           ))}
         </div>

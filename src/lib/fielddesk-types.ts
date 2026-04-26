@@ -46,6 +46,13 @@ export type CorrectionEvent = {
   title: string;
 };
 
+export type MissionSummary = {
+  workflow: string;
+  destination: string;
+  dates: string;
+  travelers: string;
+};
+
 export type AgentRunContext = {
   sessionId: string;
   trigger: AgentRunTrigger;
@@ -141,7 +148,7 @@ export type AgentGeneratedWorkProduct = {
 };
 
 export type FieldDeskAgentObjectOutput = {
-  mission: FieldDeskAgentRun["mission"];
+  mission: MissionSummary;
   sourceSearchResults: Array<{
     source: string;
     finding: string;
@@ -156,12 +163,7 @@ export type FieldDeskAgentObjectOutput = {
 };
 
 export type FieldDeskAgentRun = {
-  mission: {
-    workflow: string;
-    destination: string;
-    dates: string;
-    travelers: string;
-  };
+  mission: MissionSummary;
   sourceSearchResults: ReadonlyArray<SourceSearchResult>;
   evidenceMap: ReadonlyArray<EvidenceMapItem>;
   readiness: {
@@ -177,6 +179,7 @@ export type FieldDeskAgentRun = {
   dtsRows: ReadonlyArray<DtsExportRow>;
   packageRows: ReadonlyArray<string>;
   activityTrail: ReadonlyArray<ActivityEvent>;
+  objectOutput: FieldDeskAgentObjectOutput;
 };
 
 export type AgentRunEnvelope = {

@@ -123,7 +123,8 @@ function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput): FieldDe
     actionList: output.generatedWorkProduct.actionList.map((action) => [action.action, action.owner, action.status]),
     dtsRows: output.generatedWorkProduct.dtsRows.map((row) => [row.field, row.value]),
     packageRows: output.generatedWorkProduct.packageRows,
-    activityTrail: output.activityTrail
+    activityTrail: output.activityTrail,
+    objectOutput: output
   };
 }
 

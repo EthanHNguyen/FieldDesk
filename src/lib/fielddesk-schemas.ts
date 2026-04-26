@@ -79,6 +79,20 @@ export function validateAgentRunOutput(value: unknown): { ok: true } | { ok: fal
     errors.push("issues must contain at least one item.");
   }
 
+  if (!isRecord(value.objectOutput)) {
+    errors.push("objectOutput must be an object-native agent result.");
+  } else {
+    if (!Array.isArray(value.objectOutput.evidenceMap) || value.objectOutput.evidenceMap.length === 0) {
+      errors.push("objectOutput.evidenceMap must contain at least one item.");
+    }
+    if (!Array.isArray(value.objectOutput.findings) || value.objectOutput.findings.length === 0) {
+      errors.push("objectOutput.findings must contain at least one item.");
+    }
+    if (!isRecord(value.objectOutput.generatedWorkProduct)) {
+      errors.push("objectOutput.generatedWorkProduct must be an object.");
+    }
+  }
+
   return errors.length > 0 ? { ok: false, errors } : { ok: true };
 }
 

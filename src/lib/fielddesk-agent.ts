@@ -9,7 +9,7 @@ import {
   reviewerQuestions,
   sourceSearchResults
 } from "./fielddesk-static";
-import type { ActivityEvent, AgentIssue, AgentRunInput, EvidenceMapItem, FieldDeskAgentRun, ReadinessArea, SourceSearchResult, Status } from "./fielddesk-types";
+import type { ActivityEvent, AgentIssue, AgentRunInput, EvidenceMapItem, FieldDeskAgentObjectOutput, FieldDeskAgentRun, ReadinessArea, SourceSearchResult, Status } from "./fielddesk-types";
 
 const resolvedReadinessAreas: ReadinessArea[] = [
   ["Mission intent", "Found"],
@@ -31,7 +31,7 @@ export function runFieldDeskAgent(input: AgentRunInput): FieldDeskAgentRun {
   const score = allResolved ? 91 : Math.max(48, 72 - disabledSourcePenalty(input));
   const risk = allResolved && !sourceDegraded ? "Low" : "High";
 
-  return {
+  const run: Omit<FieldDeskAgentRun, "objectOutput"> = {
     mission: missionSummary,
     sourceSearchResults: buildSourceSearchResults(input),
     evidenceMap: evidence,
@@ -49,6 +49,96 @@ export function runFieldDeskAgent(input: AgentRunInput): FieldDeskAgentRun {
     packageRows: [...packageRows],
     activityTrail: buildActivityTrail(input, issues)
   };
+
+  return {
+    ...run,
+    objectOutput: buildObjectOutput(run)
+  };
+}
+
+function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">): FieldDeskAgentObjectOutput {
+  return {
+    mission: run.mission,
+    sourceSearchResults: run.sourceSearchResults.map(([source, finding]) => ({
+      source,
+      finding,
+      artifactIds: inferArtifactIds(`${source} ${finding}`)
+    })),
+    evidenceMap: run.evidenceMap.map(([requirement, evidence, source, status]) => ({
+      requirementId: requirement.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      requirement,
+      status,
+      evidenceArtifactIds: evidence === "None" || evidence === "Source disabled" ? [] : inferArtifactIds(`${evidence} ${source}`),
+      evidenceSummary: evidence,
+      sourceSummary: source,
+      rationale: status === "Missing" || status === "Conflict" || status === "Weak" ? "Requires user action before routing." : "Evidence satisfies the workflow requirement.",
+      confidence: status === "Missing" || status === "Weak" ? 0.72 : 0.9
+    })),
+    findings: run.issues.map((issue) => ({
+      ...issue,
+      evidenceArtifactIds: findingArtifactIds(issue),
+      rationale: issue.summary,
+      confidence: issue.status === "Missing" || issue.status === "Weak" ? 0.78 : 0.9
+    })),
+    reviewerObjections: run.reviewerQuestions.map((question) => ({
+      question,
+      rationale: "Reviewer may reject the packet if this point is not supported by attached evidence.",
+      evidenceArtifactIds: inferArtifactIds(question)
+    })),
+    readiness: {
+      ...run.readiness,
+      areas: run.readiness.areas.map(([area, status]) => ({
+        area,
+        status,
+        rationale: status === "Missing" || status === "Conflict" || status === "Weak" || status === "High" ? "Open risk remains for this area." : "Area is supported for review."
+      }))
+    },
+    generatedWorkProduct: {
+      packetSummary: "TDY packet prepared for Demo Training Site training with evidence, reviewer objections, corrections, and DTS draft fields assembled for human review.",
+      rentalVehicleJustification: run.evidenceMap.find(([requirement]) => requirement === "Rental vehicle justification")?.[1] ?? "",
+      dtsRows: run.dtsRows.map(([field, value]) => ({
+        field,
+        value,
+        sourceArtifactIds: inferArtifactIds(`${field} ${value}`)
+      })),
+      packageRows: [...run.packageRows],
+      actionList: run.actionList.map(([action, owner, status]) => ({
+        action,
+        owner,
+        status
+      }))
+    },
+    activityTrail: [...run.activityTrail]
+  };
+}
+
+function inferArtifactIds(text: string) {
+  const ids: string[] = [];
+  const checks: Array<[RegExp, string]> = [
+    [/approval|demoapprover|outlook/i, "outlook-001"],
+    [/fund|memo/i, "upload-003"],
+    [/training_order|training order|purpose|dates|destination/i, "sp-001"],
+    [/roster_v3|corrected roster/i, "sp-004"],
+    [/roster|traveler/i, "sp-002"],
+    [/checklist/i, "sp-003"],
+    [/per diem|gsa/i, "gsa-001"],
+    [/jtr|policy/i, "jtr-001"],
+    [/sop|routing/i, "sop-001"],
+    [/justification/i, "justification-001"]
+  ];
+
+  for (const [pattern, id] of checks) {
+    if (pattern.test(text) && !ids.includes(id)) ids.push(id);
+  }
+
+  return ids;
+}
+
+function findingArtifactIds(issue: AgentIssue) {
+  if (issue.id === "roster") return issue.status === "Resolved" ? ["sp-001", "sp-004"] : ["sp-001", "sp-002"];
+  if (issue.id === "funding") return issue.status === "Found" ? ["upload-003"] : [];
+  if (issue.id === "justification") return issue.status === "Improved" ? ["justification-001"] : [];
+  return [];
 }
 
 function buildEvidenceMap(input: AgentRunInput): EvidenceMapItem[] {
