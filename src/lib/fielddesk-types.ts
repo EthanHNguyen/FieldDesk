@@ -84,6 +84,77 @@ export type ActivityEvent = {
   status: Status;
 };
 
+export type AgentEvidenceItem = {
+  requirementId: string;
+  requirement: string;
+  status: Status;
+  evidenceArtifactIds: string[];
+  evidenceSummary: string;
+  sourceSummary: string;
+  rationale: string;
+  confidence: number;
+};
+
+export type AgentFinding = {
+  id: IssueId;
+  title: string;
+  status: Status;
+  summary: string;
+  owner: string;
+  suggestedActions: string[];
+  evidenceArtifactIds: string[];
+  rationale: string;
+  confidence: number;
+};
+
+export type AgentReviewerObjection = {
+  question: string;
+  rationale: string;
+  evidenceArtifactIds: string[];
+};
+
+export type AgentReadinessAssessment = {
+  score: number;
+  risk: "High" | "Low";
+  riskLabel: string;
+  areas: Array<{
+    area: string;
+    status: Status;
+    rationale: string;
+  }>;
+};
+
+export type AgentGeneratedWorkProduct = {
+  packetSummary: string;
+  rentalVehicleJustification: string;
+  dtsRows: Array<{
+    field: string;
+    value: string;
+    sourceArtifactIds: string[];
+  }>;
+  packageRows: string[];
+  actionList: Array<{
+    action: string;
+    owner: string;
+    status: string;
+  }>;
+};
+
+export type FieldDeskAgentObjectOutput = {
+  mission: FieldDeskAgentRun["mission"];
+  sourceSearchResults: Array<{
+    source: string;
+    finding: string;
+    artifactIds: string[];
+  }>;
+  evidenceMap: AgentEvidenceItem[];
+  findings: AgentFinding[];
+  reviewerObjections: AgentReviewerObjection[];
+  readiness: AgentReadinessAssessment;
+  generatedWorkProduct: AgentGeneratedWorkProduct;
+  activityTrail: ActivityEvent[];
+};
+
 export type FieldDeskAgentRun = {
   mission: {
     workflow: string;

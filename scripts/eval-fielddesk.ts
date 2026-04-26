@@ -119,11 +119,12 @@ async function judgeRuns(payload: {
   if (!content) throw new Error("Judge response did not include message content.");
 
   const judgment = JSON.parse(content) as JudgeResult;
-  if (judgment.score < 0.8) {
+  const normalizedScore = judgment.score > 1 ? judgment.score / 100 : judgment.score;
+  if (normalizedScore < 0.8) {
     throw new Error(`Judge eval failed: score=${judgment.score}; findings=${judgment.findings.join(" | ")}`);
   }
 
-  console.log(`Judge score: ${judgment.score}`);
+  console.log(`Judge score: ${normalizedScore}`);
   for (const finding of judgment.findings) console.log(`- ${finding}`);
 }
 

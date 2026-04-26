@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { AgentArtifact, AgentRunContext, AgentRunInput, CorrectionEvent, FieldDeskAgentRun, UnavailableArtifactSummary } from "../fielddesk-types";
+import type { AgentArtifact, AgentRunContext, AgentRunInput, CorrectionEvent, FieldDeskAgentObjectOutput, FieldDeskAgentRun, UnavailableArtifactSummary } from "../fielddesk-types";
 
 export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAgentRun> {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -30,7 +30,7 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
         {
           role: "user",
           content: JSON.stringify({
-            task: "Analyze the TDY Travel Readiness workflow using only the current AgentRunContext and return the complete FieldDeskAgentRun JSON.",
+            task: "Analyze the TDY Travel Readiness workflow using only the current AgentRunContext and return FieldDeskAgentObjectOutput JSON.",
             agentRunContext: context,
             outputGuidance: {
               statuses: ["Found", "Weak", "Missing", "Conflict", "Resolved", "Improved", "High", "Low"],
@@ -48,18 +48,16 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
                 "Funding source"
               ],
               requiredIssueIds: ["roster", "funding", "justification"],
+              citationRule: "Every evidence-backed claim must cite available artifact IDs. Never cite unavailable artifact IDs as evidence.",
               scoringGuidance: "Score and risk should follow the evidence available in this run. Do not treat unavailable artifacts as found.",
               expectedOutputShape: {
                 mission: "object",
-                sourceSearchResults: "array of [source, finding]",
-                evidenceMap: "array of [requirement, evidence, source, status]",
+                sourceSearchResults: "array of { source, finding, artifactIds }",
+                evidenceMap: "array of { requirementId, requirement, status, evidenceArtifactIds, evidenceSummary, sourceSummary, rationale, confidence }",
                 readiness: "object with score, risk, riskLabel, areas",
-                issues: "array of issue objects",
-                reviewerQuestions: "array of strings",
-                corrections: "array of [name, state]",
-                actionList: "array of [action, owner, status]",
-                dtsRows: "array of [field, value]",
-                packageRows: "array of strings",
+                findings: "array of issue objects with artifact citations",
+                reviewerObjections: "array of { question, rationale, evidenceArtifactIds }",
+                generatedWorkProduct: "object with packetSummary, rentalVehicleJustification, dtsRows, packageRows, actionList",
                 activityTrail: "array of event objects"
               }
             }
@@ -69,9 +67,9 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
       response_format: {
         type: "json_schema",
         json_schema: {
-          name: "fielddesk_agent_run",
+          name: "fielddesk_agent_object_output",
           strict: false,
-          schema: fieldDeskAgentRunJsonSchema
+          schema: fieldDeskAgentObjectOutputJsonSchema
         }
       }
     })
@@ -89,14 +87,44 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
     throw new Error("OpenRouter response did not include message content.");
   }
 
-  return normalizeAgentRun(JSON.parse(content));
+  return objectOutputToFieldDeskRun(normalizeAgentObjectOutput(JSON.parse(content)));
 }
 
-function normalizeAgentRun(value: unknown): FieldDeskAgentRun {
-  if (isRecord(value) && isRecord(value.output)) return value.output as FieldDeskAgentRun;
-  if (isRecord(value) && isRecord(value.run)) return value.run as FieldDeskAgentRun;
-  if (isRecord(value) && isRecord(value.FieldDeskAgentRun)) return value.FieldDeskAgentRun as FieldDeskAgentRun;
-  return value as FieldDeskAgentRun;
+function normalizeAgentObjectOutput(value: unknown): FieldDeskAgentObjectOutput {
+  if (isRecord(value) && isRecord(value.output)) return value.output as FieldDeskAgentObjectOutput;
+  if (isRecord(value) && isRecord(value.run)) return value.run as FieldDeskAgentObjectOutput;
+  if (isRecord(value) && isRecord(value.FieldDeskAgentObjectOutput)) return value.FieldDeskAgentObjectOutput as FieldDeskAgentObjectOutput;
+  return value as FieldDeskAgentObjectOutput;
+}
+
+function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput): FieldDeskAgentRun {
+  return {
+    mission: output.mission,
+    sourceSearchResults: output.sourceSearchResults.map((row) => [row.source, row.finding]),
+    evidenceMap: output.evidenceMap.map((item) => [item.requirement, item.evidenceSummary || "None", item.sourceSummary || item.evidenceArtifactIds.join(", ") || "None", item.status]),
+    readiness: {
+      score: output.readiness.score,
+      risk: output.readiness.risk,
+      riskLabel: output.readiness.riskLabel,
+      areas: output.readiness.areas.map((area) => [area.area, area.status])
+    },
+    issues: output.findings.map((finding) => ({
+      id: finding.id,
+      title: finding.title,
+      status: finding.status,
+      summary: finding.summary,
+      owner: finding.owner,
+      suggestedActions: finding.suggestedActions
+    })),
+    reviewerQuestions: output.reviewerObjections.map((objection) => objection.question),
+    corrections: output.generatedWorkProduct.actionList
+      .filter((action) => /roster|funding|justification/i.test(action.action))
+      .map((action) => [action.action, action.status]),
+    actionList: output.generatedWorkProduct.actionList.map((action) => [action.action, action.owner, action.status]),
+    dtsRows: output.generatedWorkProduct.dtsRows.map((row) => [row.field, row.value]),
+    packageRows: output.generatedWorkProduct.packageRows,
+    activityTrail: output.activityTrail
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -296,18 +324,12 @@ type OpenRouterChatCompletion = {
 
 const statusEnum = ["Found", "Weak", "Missing", "Conflict", "Resolved", "Improved", "High", "Low"];
 
-const tupleArraySchema = {
+const artifactIdsSchema = {
   type: "array",
-  items: {
-    type: "array",
-    items: {
-      type: "string"
-    },
-    minItems: 2
-  }
+  items: { type: "string" }
 };
 
-const fieldDeskAgentRunJsonSchema = {
+const fieldDeskAgentObjectOutputJsonSchema = {
   type: "object",
   additionalProperties: false,
   required: [
@@ -315,12 +337,9 @@ const fieldDeskAgentRunJsonSchema = {
     "sourceSearchResults",
     "evidenceMap",
     "readiness",
-    "issues",
-    "reviewerQuestions",
-    "corrections",
-    "actionList",
-    "dtsRows",
-    "packageRows",
+    "findings",
+    "reviewerObjections",
+    "generatedWorkProduct",
     "activityTrail"
   ],
   properties: {
@@ -335,8 +354,37 @@ const fieldDeskAgentRunJsonSchema = {
         travelers: { type: "string" }
       }
     },
-    sourceSearchResults: tupleArraySchema,
-    evidenceMap: tupleArraySchema,
+    sourceSearchResults: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["source", "finding", "artifactIds"],
+        properties: {
+          source: { type: "string" },
+          finding: { type: "string" },
+          artifactIds: artifactIdsSchema
+        }
+      }
+    },
+    evidenceMap: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["requirementId", "requirement", "status", "evidenceArtifactIds", "evidenceSummary", "sourceSummary", "rationale", "confidence"],
+        properties: {
+          requirementId: { type: "string" },
+          requirement: { type: "string" },
+          status: { type: "string", enum: statusEnum },
+          evidenceArtifactIds: artifactIdsSchema,
+          evidenceSummary: { type: "string" },
+          sourceSummary: { type: "string" },
+          rationale: { type: "string" },
+          confidence: { type: "number", minimum: 0, maximum: 1 }
+        }
+      }
+    },
     readiness: {
       type: "object",
       additionalProperties: false,
@@ -345,15 +393,27 @@ const fieldDeskAgentRunJsonSchema = {
         score: { type: "number", minimum: 0, maximum: 100 },
         risk: { type: "string", enum: ["High", "Low"] },
         riskLabel: { type: "string" },
-        areas: tupleArraySchema
+        areas: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["area", "status", "rationale"],
+            properties: {
+              area: { type: "string" },
+              status: { type: "string", enum: statusEnum },
+              rationale: { type: "string" }
+            }
+          }
+        }
       }
     },
-    issues: {
+    findings: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "title", "status", "summary", "owner", "suggestedActions"],
+        required: ["id", "title", "status", "summary", "owner", "suggestedActions", "evidenceArtifactIds", "rationale", "confidence"],
         properties: {
           id: { type: "string", enum: ["roster", "funding", "justification"] },
           title: { type: "string" },
@@ -363,20 +423,64 @@ const fieldDeskAgentRunJsonSchema = {
           suggestedActions: {
             type: "array",
             items: { type: "string" }
-          }
+          },
+          evidenceArtifactIds: artifactIdsSchema,
+          rationale: { type: "string" },
+          confidence: { type: "number", minimum: 0, maximum: 1 }
         }
       }
     },
-    reviewerQuestions: {
+    reviewerObjections: {
       type: "array",
-      items: { type: "string" }
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["question", "rationale", "evidenceArtifactIds"],
+        properties: {
+          question: { type: "string" },
+          rationale: { type: "string" },
+          evidenceArtifactIds: artifactIdsSchema
+        }
+      }
     },
-    corrections: tupleArraySchema,
-    actionList: tupleArraySchema,
-    dtsRows: tupleArraySchema,
-    packageRows: {
-      type: "array",
-      items: { type: "string" }
+    generatedWorkProduct: {
+      type: "object",
+      additionalProperties: false,
+      required: ["packetSummary", "rentalVehicleJustification", "dtsRows", "packageRows", "actionList"],
+      properties: {
+        packetSummary: { type: "string" },
+        rentalVehicleJustification: { type: "string" },
+        dtsRows: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["field", "value", "sourceArtifactIds"],
+            properties: {
+              field: { type: "string" },
+              value: { type: "string" },
+              sourceArtifactIds: artifactIdsSchema
+            }
+          }
+        },
+        packageRows: {
+          type: "array",
+          items: { type: "string" }
+        },
+        actionList: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["action", "owner", "status"],
+            properties: {
+              action: { type: "string" },
+              owner: { type: "string" },
+              status: { type: "string" }
+            }
+          }
+        }
+      }
     },
     activityTrail: {
       type: "array",
