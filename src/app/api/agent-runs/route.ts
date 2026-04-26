@@ -1,95 +1,87 @@
 import { NextResponse } from "next/server";
-import { runFieldDeskAgent } from "../../../lib/fielddesk-agent";
-import type { AgentRunInput, IssueId, ResolutionState } from "../../../lib/fielddesk-types";
+import { AgentOutputValidationError, runAgent } from "../../../lib/agent-adapters/run-agent";
+import { parseAgentMode, validateAgentRunRequest } from "../../../lib/fielddesk-schemas";
+import type { AgentRunApiResponse, AgentRunEnvelope } from "../../../lib/fielddesk-types";
 
-const issueIds: IssueId[] = ["roster", "funding", "justification"];
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  const input = validateAgentRunInput(body);
+  const parsedRequest = validateAgentRunRequest(body);
 
-  if (!input.ok) {
-    return NextResponse.json({ error: "Invalid agent run request", details: input.errors }, { status: 400 });
+  if (!parsedRequest.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "invalid_request",
+          message: "Invalid agent run request.",
+          details: parsedRequest.errors
+        }
+      } satisfies AgentRunApiResponse,
+      { status: 400 }
+    );
   }
 
-  const mode = process.env.FIELD_DESK_AGENT_MODE ?? "mock";
+  const mode = parseAgentMode(process.env.FIELD_DESK_AGENT_MODE);
 
-  if (mode !== "mock") {
-    return NextResponse.json({ error: `Unsupported FIELD_DESK_AGENT_MODE: ${mode}` }, { status: 501 });
+  if (!mode) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "unsupported_agent_mode",
+          message: `Unsupported FIELD_DESK_AGENT_MODE: ${process.env.FIELD_DESK_AGENT_MODE}`
+        }
+      } satisfies AgentRunApiResponse,
+      { status: 501 }
+    );
   }
 
-  return NextResponse.json({
-    mode,
-    run: runFieldDeskAgent(input.value)
-  });
-}
+  try {
+    const run = await runAgent(mode, parsedRequest.value.input);
+    const envelope: AgentRunEnvelope = {
+      sessionId: parsedRequest.value.sessionId ?? "demo-tdy-session",
+      runId: crypto.randomUUID(),
+      previousRunId: parsedRequest.value.previousRunId,
+      mode,
+      trigger: parsedRequest.value.trigger ?? "initial_analysis",
+      status: "completed",
+      createdAt: new Date().toISOString(),
+      input: parsedRequest.value.input,
+      output: run,
+      events: run.activityTrail
+    };
 
-function validateAgentRunInput(value: unknown): { ok: true; value: AgentRunInput } | { ok: false; errors: string[] } {
-  const errors: string[] = [];
-
-  if (!isRecord(value)) {
-    return { ok: false, errors: ["Request body must be an object."] };
-  }
-
-  if (typeof value.intent !== "string" || value.intent.trim().length === 0) {
-    errors.push("intent must be a non-empty string.");
-  }
-
-  if (!Array.isArray(value.selectedSources) || !value.selectedSources.every((source) => typeof source === "string")) {
-    errors.push("selectedSources must be an array of strings.");
-  }
-
-  const resolutions = validateResolutions(value.resolutions);
-  if (!resolutions.ok) {
-    errors.push(...resolutions.errors);
-  }
-
-  if (typeof value.vehicleJustification !== "string") {
-    errors.push("vehicleJustification must be a string.");
-  }
-
-  if (errors.length > 0 || !resolutions.ok) {
-    return { ok: false, errors };
-  }
-
-  const intent = value.intent as string;
-  const selectedSources = value.selectedSources as string[];
-  const vehicleJustification = value.vehicleJustification as string;
-
-  return {
-    ok: true,
-    value: {
-      intent,
-      selectedSources,
-      resolutions: resolutions.value,
-      vehicleJustification
+    return NextResponse.json({
+      ok: true,
+      envelope,
+      run
+    } satisfies AgentRunApiResponse);
+  } catch (error) {
+    if (error instanceof AgentOutputValidationError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "invalid_agent_output",
+            message: "Agent output failed validation.",
+            details: error.details
+          }
+        } satisfies AgentRunApiResponse,
+        { status: 502 }
+      );
     }
-  };
-}
 
-function validateResolutions(value: unknown): { ok: true; value: ResolutionState } | { ok: false; errors: string[] } {
-  if (!isRecord(value)) {
-    return { ok: false, errors: ["resolutions must be an object."] };
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "agent_run_failed",
+          message: error instanceof Error ? error.message : "Agent run failed."
+        }
+      } satisfies AgentRunApiResponse,
+      { status: 500 }
+    );
   }
-
-  const errors = issueIds
-    .filter((issueId) => typeof value[issueId] !== "boolean")
-    .map((issueId) => `resolutions.${issueId} must be a boolean.`);
-
-  if (errors.length > 0) {
-    return { ok: false, errors };
-  }
-
-  return {
-    ok: true,
-    value: {
-      roster: value.roster as boolean,
-      funding: value.funding as boolean,
-      justification: value.justification as boolean
-    }
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

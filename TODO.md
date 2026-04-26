@@ -2,11 +2,11 @@
 
 ## Backend API Readiness
 
-- [ ] Introduce workflow session and agent run concepts.
+- [x] Introduce workflow session and agent run concepts.
   - `WorkflowSession`: full user journey.
   - `AgentRun`: one recomputation over current session state.
   - `CorrectionEvent`: user action that changes evidence or assumptions.
-- [ ] Add run envelope fields:
+- [x] Add run envelope fields:
   - `sessionId`
   - `runId`
   - `previousRunId`
@@ -17,24 +17,24 @@
   - `input`
   - `output`
   - `events`
-- [ ] Refactor `/api/agent-runs` into:
+- [x] Refactor `/api/agent-runs` into:
   - request validation
   - session/input loader
   - agent dispatcher
   - adapter call
   - response validation
   - structured error response
-- [ ] Add adapter files:
+- [x] Add adapter files:
   - `src/lib/agent-adapters/mock-agent.ts`
   - `src/lib/agent-adapters/openai-agent.ts`
   - `src/lib/agent-adapters/run-agent.ts`
-- [ ] Preserve `FIELD_DESK_AGENT_MODE=mock` as deterministic fallback.
-- [ ] Add `FIELD_DESK_AGENT_MODE=openai` only after schemas and evals are in place.
+- [x] Preserve `FIELD_DESK_AGENT_MODE=mock` as deterministic fallback.
+- [x] Add `FIELD_DESK_AGENT_MODE=openai` adapter path.
 
 ## Schemas And Contracts
 
 - [ ] Replace tuple-heavy backend outputs with object schemas.
-- [ ] Add schema validation for both request and response.
+- [x] Add schema validation for both request and response.
 - [ ] Define core output schemas:
   - `EvidenceMap`
   - `GapFinding`
@@ -44,7 +44,7 @@
   - `GeneratedWorkProduct`
 - [ ] Add citation/source references to evidence items.
 - [ ] Add confidence and rationale fields where useful.
-- [ ] Improve client error handling so API validation, unsupported mode, model failure, and malformed output are distinguishable.
+- [x] Improve client error handling so API validation, unsupported mode, model failure, and malformed output are distinguishable.
 
 ## Golden Dataset And Evals
 
@@ -109,11 +109,11 @@
 
 ## LLM Agent Integration
 
-- [ ] Implement OpenAI adapter behind the dispatcher.
+- [x] Implement OpenAI adapter behind the dispatcher.
 - [ ] Keep connectors mocked.
-- [ ] Pass controlled mock source context to the agent.
-- [ ] Require structured output.
-- [ ] Validate model output before returning to UI.
+- [x] Pass controlled mock source context to the agent.
+- [x] Require structured output.
+- [x] Validate model output before returning to UI.
 - [ ] Keep mock mode as test oracle and fallback.
 
 ## Demo Polish

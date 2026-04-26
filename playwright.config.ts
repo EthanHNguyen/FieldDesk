@@ -12,6 +12,9 @@ export default defineConfig({
   },
   webServer: {
     command: "npm run dev -- --hostname localhost",
+    env: {
+      FIELD_DESK_AGENT_MODE: "mock"
+    },
     url: "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 30_000

@@ -13,6 +13,17 @@ export type AgentRunInput = {
   vehicleJustification: string;
 };
 
+export type AgentMode = "mock" | "openai";
+
+export type AgentRunTrigger = "initial_analysis" | "correction_staged" | "source_changed" | "justification_edited";
+
+export type AgentRunRequest = {
+  sessionId?: string;
+  previousRunId?: string;
+  trigger?: AgentRunTrigger;
+  input: AgentRunInput;
+};
+
 export type SourceSearchResult = readonly [source: string, finding: string];
 
 export type EvidenceMapItem = readonly [requirement: string, evidence: string, source: string, status: Status];
@@ -63,3 +74,31 @@ export type FieldDeskAgentRun = {
   packageRows: ReadonlyArray<string>;
   activityTrail: ReadonlyArray<ActivityEvent>;
 };
+
+export type AgentRunEnvelope = {
+  sessionId: string;
+  runId: string;
+  previousRunId?: string;
+  mode: AgentMode;
+  trigger: AgentRunTrigger;
+  status: "completed";
+  createdAt: string;
+  input: AgentRunInput;
+  output: FieldDeskAgentRun;
+  events: ReadonlyArray<ActivityEvent>;
+};
+
+export type AgentRunApiResponse =
+  | {
+      ok: true;
+      envelope: AgentRunEnvelope;
+      run: FieldDeskAgentRun;
+    }
+  | {
+      ok: false;
+      error: {
+        code: "invalid_request" | "unsupported_agent_mode" | "agent_run_failed" | "invalid_agent_output";
+        message: string;
+        details?: string[];
+      };
+    };
