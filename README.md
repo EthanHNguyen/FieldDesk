@@ -24,7 +24,9 @@ FieldDesk is not a regulation chatbot. It is an agentic workflow platform for ad
 
 ![FieldDesk workflows dashboard](./screenshots/00-workflows-dashboard.png)
 
-<video src="./assets/fielddesk-demo.webm" controls width="100%" title="FieldDesk demo"></video>
+<p align="center" width="100%">
+  <video src="./assets/fielddesk-demo.mp4" width="80%" controls title="FieldDesk demo"></video>
+</p>
 
 ### The Workflow
 
