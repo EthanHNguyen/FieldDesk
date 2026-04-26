@@ -3,17 +3,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "FieldDesk",
-  description: "Draft-only staff workflow desk",
+  description: "TDY travel readiness workflow"
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en">
+      <body>{children}</body>
     </html>
   );
 }
