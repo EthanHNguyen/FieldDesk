@@ -1,0 +1,48 @@
+export type Step = 1 | 2 | 3 | 4 | 5 | 6;
+
+export type Status = "Found" | "Weak" | "Missing" | "Conflict" | "Resolved" | "Improved" | "High" | "Low";
+
+export type IssueId = "roster" | "funding" | "justification";
+
+export type ResolutionState = Record<IssueId, boolean>;
+
+export type AgentRunInput = {
+  intent: string;
+  selectedSources: string[];
+  resolutions: ResolutionState;
+  vehicleJustification: string;
+};
+
+export type SourceSearchResult = readonly [source: string, finding: string];
+
+export type EvidenceMapItem = readonly [requirement: string, evidence: string, source: string, status: Status];
+
+export type ReadinessArea = readonly [area: string, status: Status];
+
+export type CorrectionItem = readonly [name: string, state: string];
+
+export type ActionItem = readonly [action: string, owner: string, status: string];
+
+export type DtsExportRow = readonly [field: string, value: string];
+
+export type FieldDeskAgentRun = {
+  mission: {
+    workflow: string;
+    destination: string;
+    dates: string;
+    travelers: string;
+  };
+  sourceSearchResults: ReadonlyArray<SourceSearchResult>;
+  evidenceMap: ReadonlyArray<EvidenceMapItem>;
+  readiness: {
+    score: number;
+    risk: "High" | "Low";
+    riskLabel: string;
+    areas: ReadonlyArray<ReadinessArea>;
+  };
+  reviewerQuestions: ReadonlyArray<string>;
+  corrections: ReadonlyArray<CorrectionItem>;
+  actionList: ReadonlyArray<ActionItem>;
+  dtsRows: ReadonlyArray<DtsExportRow>;
+  packageRows: ReadonlyArray<string>;
+};

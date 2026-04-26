@@ -41,30 +41,15 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { runFieldDeskAgent } from "../lib/fielddesk-agent";
 import {
-  actionList,
-  corrections,
-  dtsRows,
-  evidenceMap,
   expectedOutputs,
   missionIntent,
-  missionSummary,
-  packageRows,
-  readinessAreas,
-  reviewerQuestions,
-  sourceSearchResults,
   sourceToggles,
-  type Step,
-  type Status,
   workflows,
   workflowSteps
 } from "../lib/fielddesk-static";
-
-type ResolutionState = {
-  roster: boolean;
-  funding: boolean;
-  justification: boolean;
-};
+import type { FieldDeskAgentRun, IssueId, ResolutionState, Step, Status } from "../lib/fielddesk-types";
 
 const initialResolutionState: ResolutionState = {
   roster: false,
@@ -82,7 +67,17 @@ export default function Home() {
   const [vehicleJustification, setVehicleJustification] = useState(
     "Rental vehicles are required to move personnel between lodging, training site, and required training support locations due to schedule constraints and lack of available unit transportation."
   );
-  const foundCount = useMemo(() => evidenceMap.filter((row) => row[3] === "Found").length, []);
+  const agentRun = useMemo(
+    () =>
+      runFieldDeskAgent({
+        intent,
+        selectedSources: [...sourceToggles],
+        resolutions: resolution,
+        vehicleJustification
+      }),
+    [intent, resolution, vehicleJustification]
+  );
+  const foundCount = useMemo(() => agentRun.evidenceMap.filter((row) => row[3] === "Found" || row[3] === "Resolved").length, [agentRun.evidenceMap]);
   const allIssuesResolved = resolution.roster && resolution.funding && resolution.justification;
 
   function advance(next: Step) {
@@ -102,7 +97,7 @@ export default function Home() {
     setActiveIssue("roster");
   }
 
-  function stageResolution(key: keyof ResolutionState) {
+  function stageResolution(key: IssueId) {
     setResolution((current) => ({ ...current, [key]: true }));
     if (key === "roster") setActiveIssue("funding");
     if (key === "funding") setActiveIssue("justification");
@@ -130,14 +125,15 @@ export default function Home() {
             <div className="workspace">
               <section className="mainPanel">
                 {step === 1 && <CaptureIntent intent={intent} setIntent={setIntent} onStart={() => advance(2)} />}
-                {step === 2 && <SearchSources intent={intent} onNext={() => advance(3)} />}
-                {step === 3 && <EvidenceMap foundCount={foundCount} onNext={() => advance(4)} />}
+                {step === 2 && <SearchSources intent={intent} run={agentRun} onNext={() => advance(3)} />}
+                {step === 3 && <EvidenceMap foundCount={foundCount} run={agentRun} onNext={() => advance(4)} />}
                 {step === 4 && (
                   <SurfaceGaps
                     activeIssue={activeIssue}
                     allIssuesResolved={allIssuesResolved}
                     justification={vehicleJustification}
                     resolution={resolution}
+                    run={agentRun}
                     onActiveIssue={setActiveIssue}
                     onJustificationChange={setVehicleJustification}
                     onResolve={applyDemoCorrections}
@@ -145,10 +141,10 @@ export default function Home() {
                     onRecompute={() => advance(5)}
                   />
                 )}
-                {step === 5 && <ResolveRecompute onExport={() => advance(6)} />}
-                {step === 6 && <ExportDts />}
+                {step === 5 && <ResolveRecompute run={agentRun} onExport={() => advance(6)} />}
+                {step === 6 && <ExportDts run={agentRun} />}
               </section>
-              <MissionRail step={step} resolved={resolved} />
+              <MissionRail run={agentRun} step={step} resolved={resolved} />
             </div>
           </>
         )}
@@ -372,7 +368,7 @@ function CaptureIntent({ intent, setIntent, onStart }: { intent: string; setInte
   );
 }
 
-function SearchSources({ intent, onNext }: { intent: string; onNext: () => void }) {
+function SearchSources({ intent, run, onNext }: { intent: string; run: FieldDeskAgentRun; onNext: () => void }) {
   return (
     <Card>
       <SectionTitle number="2" title="Search Sources" />
@@ -394,7 +390,7 @@ function SearchSources({ intent, onNext }: { intent: string; onNext: () => void 
           </tr>
         </thead>
         <tbody>
-          {sourceSearchResults.map(([source, result]) => (
+          {run.sourceSearchResults.map(([source, result]) => (
             <tr key={`${source}-${result}`}>
               <td>
                 <Icon name={source} /> {source}
@@ -418,7 +414,7 @@ function SearchSources({ intent, onNext }: { intent: string; onNext: () => void 
   );
 }
 
-function EvidenceMap({ foundCount, onNext }: { foundCount: number; onNext: () => void }) {
+function EvidenceMap({ foundCount, run, onNext }: { foundCount: number; run: FieldDeskAgentRun; onNext: () => void }) {
   return (
     <Card>
       <div className="cardHeader">
@@ -442,7 +438,7 @@ function EvidenceMap({ foundCount, onNext }: { foundCount: number; onNext: () =>
           </tr>
         </thead>
         <tbody>
-          {evidenceMap.map(([requirement, evidence, source, status]) => (
+          {run.evidenceMap.map(([requirement, evidence, source, status]) => (
             <tr key={requirement}>
               <td>{requirement}</td>
               <td>{evidence}</td>
@@ -466,6 +462,7 @@ function SurfaceGaps({
   allIssuesResolved,
   justification,
   resolution,
+  run,
   onActiveIssue,
   onJustificationChange,
   onResolve,
@@ -476,6 +473,7 @@ function SurfaceGaps({
   allIssuesResolved: boolean;
   justification: string;
   resolution: ResolutionState;
+  run: FieldDeskAgentRun;
   onActiveIssue: (issue: keyof ResolutionState) => void;
   onJustificationChange: (value: string) => void;
   onResolve: () => void;
@@ -491,17 +489,17 @@ function SurfaceGaps({
         <div className="readinessGrid">
           <div className="scoreBlock">
             <span>Readiness Score <Info /></span>
-            <strong className="scoreBlue">72</strong>
+            <strong className="scoreBlue">{run.readiness.score}</strong>
             <em>/ 100</em>
           </div>
           <div className="scoreBlock">
             <span>Risk of Return <Info /></span>
             <strong className="riskHigh">
-              <Icon name="Alert" /> High
+              <Icon name="Alert" /> {run.readiness.risk}
             </strong>
-            <em>High review risk</em>
+            <em>{run.readiness.riskLabel}</em>
           </div>
-          <StatusMatrix items={readinessAreas} />
+          <StatusMatrix items={run.readiness.areas} />
         </div>
       </Card>
       <IssueResolutionWorkspace
@@ -515,14 +513,14 @@ function SurfaceGaps({
       <Card>
         <GapTitle number="3" title="Likely Reviewer Objections" tone="orange" />
         <ol className="questions">
-          {reviewerQuestions.map((question) => (
+          {run.reviewerQuestions.map((question) => (
             <li key={question}>{question}</li>
           ))}
         </ol>
       </Card>
       <div className="buttonRow">
-        <button type="button" className="primary" onClick={allIssuesResolved ? onRecompute : onResolve}>
-          {allIssuesResolved ? "Recompute Readiness" : "Resolve Selected Actions"}
+        <button type="button" className="primary" onClick={allIssuesResolved ? onRecompute : () => onStageResolution(activeIssue)}>
+          {allIssuesResolved ? "Recompute Readiness" : "Stage Selected Action"}
         </button>
         <button type="button" className="secondary" onClick={onResolve}>
           Stage All Demo Evidence
@@ -719,7 +717,7 @@ function JustificationResolution({
   );
 }
 
-function ResolveRecompute({ onExport }: { onExport: () => void }) {
+function ResolveRecompute({ run, onExport }: { run: FieldDeskAgentRun; onExport: () => void }) {
   return (
     <div className="stack">
       <Card className="successCard">
@@ -731,7 +729,7 @@ function ResolveRecompute({ onExport }: { onExport: () => void }) {
         <div className="readinessGrid">
           <div className="scoreBlock">
             <span>Readiness Score</span>
-            <strong className="scoreGreen">91</strong>
+            <strong className="scoreGreen">{run.readiness.score}</strong>
             <em>/ 100</em>
           </div>
           <div className="scoreBlock">
@@ -758,7 +756,7 @@ function ResolveRecompute({ onExport }: { onExport: () => void }) {
       <Card>
         <h2>Corrections Applied</h2>
         <div className="correctionGrid">
-          {corrections.map(([name, state]) => (
+          {run.corrections.map(([name, state]) => (
             <div className="correction" key={name}>
               <Icon name={name} />
               <div>
@@ -781,7 +779,7 @@ function ResolveRecompute({ onExport }: { onExport: () => void }) {
             </tr>
           </thead>
           <tbody>
-            {actionList.map(([action, owner, status]) => (
+            {run.actionList.map(([action, owner, status]) => (
               <tr key={action}>
                 <td>
                   <span className="smallCheck">
@@ -809,7 +807,7 @@ function ResolveRecompute({ onExport }: { onExport: () => void }) {
   );
 }
 
-function ExportDts() {
+function ExportDts({ run }: { run: FieldDeskAgentRun }) {
   return (
     <div className="stack">
       <div className="routeBanner">
@@ -832,7 +830,7 @@ function ExportDts() {
             </tr>
           </thead>
           <tbody>
-            {dtsRows.map(([field, value]) => (
+            {run.dtsRows.map(([field, value]) => (
               <tr key={field}>
                 <td>{field}</td>
                 <td className={value.includes(".pdf") ? "linkText" : ""}>{value}</td>
@@ -844,7 +842,7 @@ function ExportDts() {
       <Card>
         <h2>Export Package</h2>
         <div className="packageList">
-          {packageRows.map((row) => (
+          {run.packageRows.map((row) => (
             <div key={row}>
               <span>
                 <span className="smallCheck">
@@ -868,12 +866,12 @@ function ExportDts() {
   );
 }
 
-function MissionRail({ step, resolved }: { step: Step; resolved: boolean }) {
+function MissionRail({ run, step, resolved }: { run: FieldDeskAgentRun; step: Step; resolved: boolean }) {
   const status = step === 1 ? "Intent captured" : step < 4 ? ["Analyzing sources", "Evidence mapped"][step - 2] : resolved ? "Ready for human review" : "High review risk";
   return (
     <aside className="rail">
       <h2>Mission Summary</h2>
-      {Object.entries(missionSummary).map(([label, value]) => (
+      {Object.entries(run.mission).map(([label, value]) => (
         <div className="summaryRow" key={label}>
           <span>{titleCase(label)}</span>
           <strong>{value}</strong>

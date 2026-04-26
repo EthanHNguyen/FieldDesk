@@ -1,6 +1,3 @@
-export type Step = 1 | 2 | 3 | 4 | 5 | 6;
-export type Status = "Found" | "Weak" | "Missing" | "Conflict" | "Resolved" | "Improved" | "High" | "Low";
-
 export const missionIntent =
   "Send 10 soldiers to Demo Training Site for training from June 10-14. Lodging and rental vehicles required.";
 

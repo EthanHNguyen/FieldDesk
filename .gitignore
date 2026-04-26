@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/test-results
 /screenshots/
 /videos/
 /demo_recording/
