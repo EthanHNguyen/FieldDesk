@@ -600,7 +600,19 @@ function EvidenceMap({ run, onNext }: { run: FieldDeskAgentRun; onNext: () => vo
           {run.evidenceMap.map(([requirement, evidence, source, status]) => (
             <tr key={requirement}>
               <td>{requirement}</td>
-              <td>{evidence}</td>
+              <td>
+                {evidence}
+                {run.objectOutput.evidenceMap.find((item) => item.requirement === requirement)?.mathVerified && (
+                  <span className="inlineBadge">
+                    <Check size={12} aria-hidden="true" /> Math Verified
+                  </span>
+                )}
+                {run.objectOutput.evidenceMap.find((item) => item.requirement === requirement)?.policyReference && (
+                  <span className="inlineBadge">
+                    <Icon name="Policy" /> Policy Trace
+                  </span>
+                )}
+              </td>
               <td>
                 <Icon name={source} /> {source}
               </td>
@@ -1029,7 +1041,19 @@ function ExportDts({ run }: { run: FieldDeskAgentRun }) {
             {run.objectOutput.evidenceMap.map((item) => (
               <tr key={item.requirementId}>
                 <td>{item.requirement}</td>
-                <td>{item.evidenceSummary}</td>
+                <td>
+                  {item.evidenceSummary}
+                  {item.mathVerified && (
+                    <span className="inlineBadge">
+                      <Check size={12} aria-hidden="true" /> Math Verified
+                    </span>
+                  )}
+                  {item.policyReference && (
+                    <span className="inlineBadge">
+                      <Icon name="Policy" /> {item.policyReference.source}: {item.policyReference.reference}
+                    </span>
+                  )}
+                </td>
                 <td>
                   <StatusPill status={item.status} />
                 </td>

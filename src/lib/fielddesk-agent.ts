@@ -8,6 +8,7 @@ import {
   readinessAreas,
   reviewerQuestions
 } from "./fielddesk-static";
+import { buildPerDiemVerification, perDiemDtsValue } from "./deterministic-rules";
 import type { ActivityEvent, AgentIssue, AgentRunInput, EvidenceMapItem, FieldDeskAgentObjectOutput, FieldDeskAgentRun, ReadinessArea, SourceSearchResult, Status } from "./fielddesk-types";
 
 const resolvedReadinessAreas: ReadinessArea[] = [
@@ -44,18 +45,20 @@ export function runFieldDeskAgent(input: AgentRunInput): FieldDeskAgentRun {
     reviewerQuestions: buildReviewerQuestions(input),
     corrections: buildCorrections(input),
     actionList: buildActionList(input),
-    dtsRows: [...dtsRows],
+    dtsRows: buildDtsRows(input),
     packageRows: [...packageRows],
     activityTrail: buildActivityTrail(input, issues)
   };
 
   return {
     ...run,
-    objectOutput: buildObjectOutput(run)
+    objectOutput: buildObjectOutput(run, input)
   };
 }
 
-function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">): FieldDeskAgentObjectOutput {
+function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">, input: AgentRunInput): FieldDeskAgentObjectOutput {
+  const perDiem = buildPerDiemVerification(input);
+
   return {
     mission: run.mission,
     sourceSearchResults: run.sourceSearchResults.map(([source, finding]) => ({
@@ -68,10 +71,12 @@ function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">): FieldD
       requirement,
       status,
       evidenceArtifactIds: evidence === "None" || evidence === "Source disabled" ? [] : inferArtifactIds(`${evidence} ${source}`),
-      evidenceSummary: evidence,
-      sourceSummary: source,
+      evidenceSummary: requirement === "Per diem estimate" && evidence !== "Source disabled" ? perDiem.summary : evidence,
+      sourceSummary: requirement === "Per diem estimate" && evidence !== "Source disabled" ? "GSA fixture" : source,
       rationale: status === "Missing" || status === "Conflict" || status === "Weak" ? "Requires user action before routing." : "Evidence satisfies the workflow requirement.",
-      confidence: status === "Missing" || status === "Weak" ? 0.72 : 0.9
+      confidence: status === "Missing" || status === "Weak" ? 0.72 : 0.9,
+      mathVerified: requirement === "Per diem estimate" && evidence !== "Source disabled" ? true : undefined,
+      policyReference: policyReferenceFor(requirement)
     })),
     findings: run.issues.map((issue) => ({
       ...issue,
@@ -109,6 +114,33 @@ function buildObjectOutput(run: Omit<FieldDeskAgentRun, "objectOutput">): FieldD
     },
     activityTrail: [...run.activityTrail]
   };
+}
+
+function buildDtsRows(input: AgentRunInput) {
+  return dtsRows.map(([field, value]) => {
+    if (/per diem/i.test(field)) return [field, perDiemDtsValue(input)] as const;
+    return [field, value] as const;
+  });
+}
+
+function policyReferenceFor(requirement: string) {
+  if (requirement === "Policy reference") {
+    return {
+      source: "JTR",
+      reference: "Mocked JTR excerpt",
+      excerpt: "TDY packets commonly include destination, dates, purpose, traveler data, lodging and meals information, transportation justification, and supporting authorization artifacts."
+    };
+  }
+
+  if (["Unit checklist", "Funding source", "Rental vehicle justification"].includes(requirement)) {
+    return {
+      source: "Local SOP",
+      reference: "TDY Packet Routing Expectations",
+      excerpt: "Include a funding memo or line of accounting before routing; include per diem estimate and lodging requirement; provide mission-specific rental vehicle justification when rental vehicles are requested."
+    };
+  }
+
+  return undefined;
 }
 
 function inferArtifactIds(text: string) {

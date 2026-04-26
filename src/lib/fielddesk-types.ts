@@ -100,6 +100,12 @@ export type AgentEvidenceItem = {
   sourceSummary: string;
   rationale: string;
   confidence: number;
+  mathVerified?: boolean;
+  policyReference?: {
+    source: string;
+    reference: string;
+    excerpt: string;
+  };
 };
 
 export type AgentFinding = {

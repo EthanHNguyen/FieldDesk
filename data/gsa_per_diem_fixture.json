@@ -11,14 +11,5 @@
       "mealsIncidentals": 68,
       "firstLastDayMeals": 51
     }
-  ],
-  "estimate": {
-    "travelers": 10,
-    "nights": 4,
-    "lodgingSubtotal": 4280,
-    "mealsIncidentalsSubtotal": 2720,
-    "firstLastDayMealsSubtotal": 1020,
-    "estimatedTotal": 8020,
-    "note": "Synthetic estimate for demo use only; not an authoritative rate decision."
-  }
+  ]
 }

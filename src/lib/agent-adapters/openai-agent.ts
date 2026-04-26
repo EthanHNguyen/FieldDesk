@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildPerDiemVerification } from "../deterministic-rules";
 import type { AgentArtifact, AgentRunContext, AgentRunInput, CorrectionEvent, FieldDeskAgentObjectOutput, FieldDeskAgentRun, UnavailableArtifactSummary } from "../fielddesk-types";
 
 const requiredSourceRows = ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"];
@@ -54,6 +55,10 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
               ],
               requiredIssueIds: ["roster", "funding", "justification"],
               citationRule: "Every evidence-backed claim must cite available artifact IDs. Never cite unavailable artifact IDs as evidence.",
+              deterministicMathRule:
+                "Do not calculate per diem totals yourself. Use GSA evidence only to identify locality/rates. The application verifies per diem math deterministically after generation.",
+              policyTraceabilityRule:
+                "For gaps and findings tied to policy or unit routing, cite available JTR, Unit Checklist, or Local SOP artifact IDs in evidenceArtifactIds and rationale.",
               scoringGuidance: "Score and risk should follow the evidence available in this run. Do not treat unavailable artifacts as found.",
               expectedOutputShape: {
                 mission: "object",
@@ -92,7 +97,7 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
     throw new Error("OpenRouter response did not include message content.");
   }
 
-  return objectOutputToFieldDeskRun(normalizeAgentObjectOutput(JSON.parse(content)), input.selectedSources);
+  return objectOutputToFieldDeskRun(normalizeAgentObjectOutput(JSON.parse(content)), input);
 }
 
 function normalizeAgentObjectOutput(value: unknown): FieldDeskAgentObjectOutput {
@@ -102,8 +107,8 @@ function normalizeAgentObjectOutput(value: unknown): FieldDeskAgentObjectOutput 
   return value as FieldDeskAgentObjectOutput;
 }
 
-function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput, selectedSources: string[]): FieldDeskAgentRun {
-  const normalizedOutput = normalizeSourceCoverage(output, selectedSources);
+function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput, input: AgentRunInput): FieldDeskAgentRun {
+  const normalizedOutput = normalizeSourceCoverage(output, input);
 
   return {
     mission: normalizedOutput.mission,
@@ -135,10 +140,12 @@ function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput, selected
   };
 }
 
-function normalizeSourceCoverage(output: FieldDeskAgentObjectOutput, selectedSources: string[]): FieldDeskAgentObjectOutput {
+function normalizeSourceCoverage(output: FieldDeskAgentObjectOutput, input: AgentRunInput): FieldDeskAgentObjectOutput {
+  const evidenceMap = normalizeEvidenceControls(output.evidenceMap, input);
+  const generatedWorkProduct = normalizeGeneratedWorkProduct(output.generatedWorkProduct, input);
   const existingRows = new Map(output.sourceSearchResults.map((row) => [row.source.toLowerCase(), row]));
   const sourceSearchResults = requiredSourceRows.map((source) => {
-    if (!selectedSources.includes(source)) {
+    if (!input.selectedSources.includes(source)) {
       return {
         source,
         finding: "Source disabled for this run",
@@ -152,8 +159,69 @@ function normalizeSourceCoverage(output: FieldDeskAgentObjectOutput, selectedSou
 
   return {
     ...output,
+    evidenceMap,
+    generatedWorkProduct,
     sourceSearchResults: [...sourceSearchResults, ...extraRows]
   };
+}
+
+function normalizeGeneratedWorkProduct(generatedWorkProduct: FieldDeskAgentObjectOutput["generatedWorkProduct"], input: AgentRunInput) {
+  const perDiem = buildPerDiemVerification(input);
+  const dtsRows = generatedWorkProduct.dtsRows.filter((row) => !/per diem/i.test(row.field));
+
+  return {
+    ...generatedWorkProduct,
+    dtsRows: [
+      ...dtsRows,
+      {
+        field: "Per Diem Estimate",
+        value: `${perDiem.formattedTotal} verified from GSA fixture`,
+        sourceArtifactIds: ["gsa-001"]
+      }
+    ]
+  };
+}
+
+function normalizeEvidenceControls(evidenceMap: FieldDeskAgentObjectOutput["evidenceMap"], input: AgentRunInput) {
+  const perDiem = buildPerDiemVerification(input);
+
+  return evidenceMap.map((item) => {
+    if (/per diem/i.test(item.requirement)) {
+      if (/source disabled|none/i.test(item.evidenceSummary)) return item;
+
+      return {
+        ...item,
+        evidenceSummary: perDiem.summary,
+        sourceSummary: "GSA fixture",
+        evidenceArtifactIds: item.evidenceArtifactIds.includes("gsa-001") ? item.evidenceArtifactIds : [...item.evidenceArtifactIds, "gsa-001"],
+        mathVerified: true
+      };
+    }
+
+    if (/policy reference/i.test(item.requirement)) {
+      return {
+        ...item,
+        policyReference: {
+          source: "JTR",
+          reference: "Mocked JTR excerpt",
+          excerpt: "TDY packets commonly include destination, dates, purpose, traveler data, lodging and meals information, transportation justification, and supporting authorization artifacts."
+        }
+      };
+    }
+
+    if (/unit checklist|funding source|rental vehicle/i.test(item.requirement)) {
+      return {
+        ...item,
+        policyReference: {
+          source: "Local SOP",
+          reference: "TDY Packet Routing Expectations",
+          excerpt: "Include a funding memo or line of accounting before routing; include per diem estimate and lodging requirement; provide mission-specific rental vehicle justification when rental vehicles are requested."
+        }
+      };
+    }
+
+    return item;
+  });
 }
 
 function fallbackSourceSearchRow(source: string, output: FieldDeskAgentObjectOutput) {
@@ -460,7 +528,18 @@ const fieldDeskAgentObjectOutputJsonSchema = {
           evidenceSummary: { type: "string" },
           sourceSummary: { type: "string" },
           rationale: { type: "string" },
-          confidence: { type: "number", minimum: 0, maximum: 1 }
+          confidence: { type: "number", minimum: 0, maximum: 1 },
+          mathVerified: { type: "boolean" },
+          policyReference: {
+            type: "object",
+            additionalProperties: false,
+            required: ["source", "reference", "excerpt"],
+            properties: {
+              source: { type: "string" },
+              reference: { type: "string" },
+              excerpt: { type: "string" }
+            }
+          }
         }
       }
     },
