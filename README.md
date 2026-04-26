@@ -8,7 +8,7 @@ The military does not just run on orders. It runs on the administrative work tha
 
 - **Team name:** FieldDesk
 - **Track:** GenAI.mil
-- **What we built:** FieldDesk consolidates fragmented information, reasons across sources against policy, catches gaps before review, and prepares ready-to-route action packages for human approval. TDY is the first workflow, but the platform is built so units can create workflow templates, reuse them, and share them across the organization.
+- **What we built:** FieldDesk is an agentic workflow platform that consolidates fragmented information, reasons across sources against policy, catches gaps before review, and prepares ready-to-route action packages for human approval. TDY is the first workflow, but the platform is built so units can create workflow templates, reuse them, and share them across the formation.
 
 ## Why It Matters
 
