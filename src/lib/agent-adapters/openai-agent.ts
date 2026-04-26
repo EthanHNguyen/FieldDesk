@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentArtifact, AgentRunContext, AgentRunInput, CorrectionEvent, FieldDeskAgentObjectOutput, FieldDeskAgentRun, UnavailableArtifactSummary } from "../fielddesk-types";
 
+const requiredSourceRows = ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"];
+
 export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAgentRun> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const model = process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
@@ -35,6 +37,9 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
             outputGuidance: {
               statuses: ["Found", "Weak", "Missing", "Conflict", "Resolved", "Improved", "High", "Low"],
               preserveTableOrder: true,
+              requiredSourceRows,
+              sourceSearchRule:
+                "Return exactly one sourceSearchResults row for every requiredSourceRows entry, in requiredSourceRows order. If a required source is not in selectedSources, return that source with finding 'Source disabled for this run' and no artifact IDs. Include supporting/reference sources such as JTR, Unit Checklist, and Local SOP even when they only corroborate requirements.",
               requiredEvidenceRequirements: [
                 "Mission purpose",
                 "Travel dates",
@@ -87,7 +92,7 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
     throw new Error("OpenRouter response did not include message content.");
   }
 
-  return objectOutputToFieldDeskRun(normalizeAgentObjectOutput(JSON.parse(content)));
+  return objectOutputToFieldDeskRun(normalizeAgentObjectOutput(JSON.parse(content)), input.selectedSources);
 }
 
 function normalizeAgentObjectOutput(value: unknown): FieldDeskAgentObjectOutput {
@@ -97,18 +102,20 @@ function normalizeAgentObjectOutput(value: unknown): FieldDeskAgentObjectOutput 
   return value as FieldDeskAgentObjectOutput;
 }
 
-function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput): FieldDeskAgentRun {
+function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput, selectedSources: string[]): FieldDeskAgentRun {
+  const normalizedOutput = normalizeSourceCoverage(output, selectedSources);
+
   return {
-    mission: output.mission,
-    sourceSearchResults: output.sourceSearchResults.map((row) => [row.source, row.finding]),
-    evidenceMap: output.evidenceMap.map((item) => [item.requirement, item.evidenceSummary || "None", item.sourceSummary || item.evidenceArtifactIds.join(", ") || "None", item.status]),
+    mission: normalizedOutput.mission,
+    sourceSearchResults: normalizedOutput.sourceSearchResults.map((row) => [row.source, row.finding]),
+    evidenceMap: normalizedOutput.evidenceMap.map((item) => [item.requirement, item.evidenceSummary || "None", item.sourceSummary || item.evidenceArtifactIds.join(", ") || "None", item.status]),
     readiness: {
-      score: output.readiness.score,
-      risk: output.readiness.risk,
-      riskLabel: output.readiness.riskLabel,
-      areas: output.readiness.areas.map((area) => [area.area, area.status])
+      score: normalizedOutput.readiness.score,
+      risk: normalizedOutput.readiness.risk,
+      riskLabel: normalizedOutput.readiness.riskLabel,
+      areas: normalizedOutput.readiness.areas.map((area) => [area.area, area.status])
     },
-    issues: output.findings.map((finding) => ({
+    issues: normalizedOutput.findings.map((finding) => ({
       id: finding.id,
       title: finding.title,
       status: finding.status,
@@ -116,16 +123,69 @@ function objectOutputToFieldDeskRun(output: FieldDeskAgentObjectOutput): FieldDe
       owner: finding.owner,
       suggestedActions: finding.suggestedActions
     })),
-    reviewerQuestions: output.reviewerObjections.map((objection) => objection.question),
-    corrections: output.generatedWorkProduct.actionList
+    reviewerQuestions: normalizedOutput.reviewerObjections.map((objection) => objection.question),
+    corrections: normalizedOutput.generatedWorkProduct.actionList
       .filter((action) => /roster|funding|justification/i.test(action.action))
       .map((action) => [action.action, action.status]),
-    actionList: output.generatedWorkProduct.actionList.map((action) => [action.action, action.owner, action.status]),
-    dtsRows: output.generatedWorkProduct.dtsRows.map((row) => [row.field, row.value]),
-    packageRows: output.generatedWorkProduct.packageRows,
-    activityTrail: output.activityTrail,
-    objectOutput: output
+    actionList: normalizedOutput.generatedWorkProduct.actionList.map((action) => [action.action, action.owner, action.status]),
+    dtsRows: normalizedOutput.generatedWorkProduct.dtsRows.map((row) => [row.field, row.value]),
+    packageRows: normalizedOutput.generatedWorkProduct.packageRows,
+    activityTrail: normalizedOutput.activityTrail,
+    objectOutput: normalizedOutput
   };
+}
+
+function normalizeSourceCoverage(output: FieldDeskAgentObjectOutput, selectedSources: string[]): FieldDeskAgentObjectOutput {
+  const existingRows = new Map(output.sourceSearchResults.map((row) => [row.source.toLowerCase(), row]));
+  const sourceSearchResults = requiredSourceRows.map((source) => {
+    if (!selectedSources.includes(source)) {
+      return {
+        source,
+        finding: "Source disabled for this run",
+        artifactIds: []
+      };
+    }
+
+    return existingRows.get(source.toLowerCase()) ?? fallbackSourceSearchRow(source, output);
+  });
+  const extraRows = output.sourceSearchResults.filter((row) => !requiredSourceRows.some((source) => source.toLowerCase() === row.source.toLowerCase()));
+
+  return {
+    ...output,
+    sourceSearchResults: [...sourceSearchResults, ...extraRows]
+  };
+}
+
+function fallbackSourceSearchRow(source: string, output: FieldDeskAgentObjectOutput) {
+  const artifactIdsBySource: Record<string, string[]> = {
+    Outlook: ["outlook-001", "outlook-002"],
+    SharePoint: ["sp-001", "sp-002"],
+    GSA: ["gsa-001"],
+    JTR: ["jtr-001"],
+    "Unit Checklist": ["sp-003"],
+    "Local SOP": ["sop-001"]
+  };
+  const evidenceText = output.evidenceMap
+    .filter((item) => source === "Unit Checklist" ? /checklist/i.test(item.requirement + item.evidenceSummary + item.sourceSummary) : item.sourceSummary.toLowerCase().includes(source.toLowerCase()))
+    .map((item) => item.evidenceSummary)
+    .filter(Boolean)
+    .join("; ");
+
+  return {
+    source,
+    finding: evidenceText || fallbackSourceFinding(source),
+    artifactIds: artifactIdsBySource[source] ?? []
+  };
+}
+
+function fallbackSourceFinding(source: string) {
+  if (source === "Outlook") return "Searched approval and reviewer email artifacts.";
+  if (source === "SharePoint") return "Searched training order and roster artifacts.";
+  if (source === "GSA") return "Searched Demo Training Site per diem rate artifact.";
+  if (source === "JTR") return "Searched TDY policy reference artifact.";
+  if (source === "Unit Checklist") return "Searched unit TDY checklist requirements.";
+  if (source === "Local SOP") return "Searched local TDY routing expectations.";
+  return "Searched selected source artifacts.";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -214,6 +274,7 @@ function addSharePointArtifacts(input: AgentRunInput, available: AgentArtifact[]
     if (!isRecord(document)) continue;
     const availableInState = typeof document.availableInState === "string" ? document.availableInState : "initial";
     const filename = String(document.filename);
+    if (filename === "unit_tdy_checklist.pdf" && input.selectedSources.includes("Unit Checklist")) continue;
     const artifact = {
       id: String(document.id),
       source: "SharePoint",
@@ -268,6 +329,23 @@ function addReferenceArtifacts(input: AgentRunInput, available: AgentArtifact[])
       content: readText("local_sop.md"),
       facts: { routingExpectationsFound: true }
     });
+  }
+
+  if (input.selectedSources.includes("Unit Checklist")) {
+    const site = readJson<Record<string, unknown>>("sharepoint_documents.json");
+    const documents = Array.isArray(site.documents) ? site.documents : [];
+    const checklist = documents.find((document) => isRecord(document) && document.id === "sp-003");
+
+    if (isRecord(checklist)) {
+      available.push({
+        id: "sp-003",
+        source: "Unit Checklist",
+        title: String(checklist.filename),
+        kind: String(checklist.kind),
+        content: String(checklist.extractedText),
+        facts: checklist.extractedEvidence
+      });
+    }
   }
 }
 

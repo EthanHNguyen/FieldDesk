@@ -6,8 +6,7 @@ import {
   missionSummary,
   packageRows,
   readinessAreas,
-  reviewerQuestions,
-  sourceSearchResults
+  reviewerQuestions
 } from "./fielddesk-static";
 import type { ActivityEvent, AgentIssue, AgentRunInput, EvidenceMapItem, FieldDeskAgentObjectOutput, FieldDeskAgentRun, ReadinessArea, SourceSearchResult, Status } from "./fielddesk-types";
 
@@ -161,13 +160,24 @@ function buildEvidenceMap(input: AgentRunInput): EvidenceMapItem[] {
 }
 
 function buildSourceSearchResults(input: AgentRunInput): SourceSearchResult[] {
-  return sourceSearchResults.map(([source, finding]) => {
-    if (source === "Funding Folder") return [source, finding];
+  const rows = ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"];
+
+  return rows.map((source) => {
     if (!input.selectedSources.includes(source)) {
       return [source, "Source disabled for this run"];
     }
-    return [source, finding];
+    return [source, sourceFinding(source)];
   });
+}
+
+function sourceFinding(source: string) {
+  if (source === "Outlook") return "Found approval email from Demo Approver and reviewer note requesting fund cite";
+  if (source === "SharePoint") return "Found training_order.pdf and roster_v2.csv";
+  if (source === "GSA") return "Found Demo Training Site per diem rates";
+  if (source === "JTR") return "Found lodging and rental vehicle references";
+  if (source === "Unit Checklist") return "Found unit_tdy_checklist.pdf";
+  if (source === "Local SOP") return "Found unit TDY routing expectations";
+  return "Searched selected source artifacts";
 }
 
 function buildReadinessAreas(input: AgentRunInput, risk: "High" | "Low"): ReadinessArea[] {
@@ -288,5 +298,5 @@ function buildActivityTrail(input: AgentRunInput, issues: AgentIssue[]): Activit
 }
 
 function disabledSourcePenalty(input: AgentRunInput) {
-  return sourceSearchResults.filter(([source]) => source !== "Funding Folder" && !input.selectedSources.includes(source)).length * 6;
+  return ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"].filter((source) => !input.selectedSources.includes(source)).length * 6;
 }

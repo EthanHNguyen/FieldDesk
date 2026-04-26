@@ -2,6 +2,7 @@ import type { AgentMode, AgentRunInput, AgentRunRequest, AgentRunTrigger, IssueI
 
 const issueIds: IssueId[] = ["roster", "funding", "justification"];
 const triggers: AgentRunTrigger[] = ["initial_analysis", "correction_staged", "source_changed", "justification_edited"];
+const expectedSourceRows = ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"];
 
 export function parseAgentMode(value: string | undefined): AgentMode | null {
   if (value === undefined || value === "mock") return "mock";
@@ -65,6 +66,10 @@ export function validateAgentRunOutput(value: unknown): { ok: true } | { ok: fal
     errors.push("evidenceMap must contain at least one item.");
   }
 
+  if (!Array.isArray(value.sourceSearchResults) || !hasExpectedSourceRows(value.sourceSearchResults)) {
+    errors.push(`sourceSearchResults must include: ${expectedSourceRows.join(", ")}.`);
+  }
+
   if (!isRecord(value.readiness)) {
     errors.push("readiness must be an object.");
   } else if (typeof value.readiness.score !== "number" || value.readiness.score < 0 || value.readiness.score > 100) {
@@ -84,6 +89,9 @@ export function validateAgentRunOutput(value: unknown): { ok: true } | { ok: fal
   } else {
     if (!Array.isArray(value.objectOutput.evidenceMap) || value.objectOutput.evidenceMap.length === 0) {
       errors.push("objectOutput.evidenceMap must contain at least one item.");
+    }
+    if (!Array.isArray(value.objectOutput.sourceSearchResults) || !hasExpectedObjectSourceRows(value.objectOutput.sourceSearchResults)) {
+      errors.push(`objectOutput.sourceSearchResults must include: ${expectedSourceRows.join(", ")}.`);
     }
     if (!Array.isArray(value.objectOutput.findings) || value.objectOutput.findings.length === 0) {
       errors.push("objectOutput.findings must contain at least one item.");
@@ -160,4 +168,14 @@ function validateResolutions(value: unknown): { ok: true; value: ResolutionState
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExpectedSourceRows(rows: unknown[]) {
+  const sources = rows.map((row) => Array.isArray(row) ? row[0] : undefined);
+  return expectedSourceRows.every((source) => sources.includes(source));
+}
+
+function hasExpectedObjectSourceRows(rows: unknown[]) {
+  const sources = rows.map((row) => isRecord(row) ? row.source : undefined);
+  return expectedSourceRows.every((source) => sources.includes(source));
 }
