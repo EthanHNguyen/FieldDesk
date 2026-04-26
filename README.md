@@ -8,7 +8,7 @@ The military does not just run on orders. It runs on the administrative work tha
 
 - **Team name:** FieldDesk
 - **Track:** GenAI.mil
-- **What we built:** FieldDesk consolidates fragmented information, reasons across sources against policy, catches gaps before review, and prepares ready-to-route action packages for human approval. TDY Travel Readiness is the first workflow, but the platform is built so units can create workflow templates, reuse them, and share them across the organization.
+- **What we built:** FieldDesk consolidates fragmented information, reasons across sources against policy, catches gaps before review, and prepares ready-to-route action packages for human approval. TDY is the first workflow, but the platform is built so units can create workflow templates, reuse them, and share them across the organization.
 
 ## Why It Matters
 
@@ -26,7 +26,7 @@ FieldDesk is not a regulation chatbot. It is an agentic workflow platform for ad
 
 ### The Workflow
 
-We started with **TDY Travel Readiness** because it is concrete, common, and painful.
+We started with **TDY** because it is concrete, common, and painful.
 
 A junior NCO enters:
 
@@ -140,6 +140,8 @@ FIELD_DESK_AGENT_MODE=tool-loop
 OPENROUTER_MODEL=google/gemini-3-flash-preview
 OPENROUTER_API_KEY=...
 ```
+
+OpenRouter is used for hackathon convenience. The agent runtime is designed so the model endpoint can be swapped for GenAI.mil or an approved local/offline model in a disconnected or secure environment.
 
 Use `FIELD_DESK_AGENT_MODE=tool-loop` to run the autonomous agent path. In that mode the model plans tool calls, the API executes fixture-backed source tools, deterministic rules verify per diem math, and the final packet passes schema checks.
 

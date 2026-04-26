@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "FieldDesk",
-  description: "TDY travel readiness workflow"
+  description: "TDY readiness workflow"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

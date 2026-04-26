@@ -158,8 +158,8 @@ nav .navActive {
 
 .page {
   margin: 0 auto;
-  max-width: 1530px;
-  padding: 36px 42px 56px;
+  max-width: 1488px;
+  padding: 28px 36px 42px;
 }
 
 .hero {
@@ -190,13 +190,13 @@ nav .navActive {
   align-items: end;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 22px;
 }
 
 .dashboardHero h1 {
-  font-size: 34px;
+  font-size: 30px;
   letter-spacing: 0;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
 }
 
 .dashboardHero p {
@@ -208,14 +208,14 @@ nav .navActive {
 
 .dashboardActions {
   display: flex;
-  gap: 14px;
+  gap: 12px;
 }
 
 .dashboardGrid {
   align-items: start;
   display: grid;
-  gap: 28px;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 26px;
+  grid-template-columns: minmax(0, 1fr) 306px;
 }
 
 .filterBar {
@@ -226,8 +226,8 @@ nav .navActive {
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(280px, 1fr) repeat(6, auto);
-  min-height: 56px;
-  padding: 10px 12px;
+  min-height: 54px;
+  padding: 9px 12px;
 }
 
 .filterBar button {
@@ -235,8 +235,8 @@ nav .navActive {
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--text);
-  min-height: 36px;
-  padding: 0 16px;
+  min-height: 34px;
+  padding: 0 15px;
 }
 
 .filterBar .filterActive {
@@ -263,20 +263,20 @@ nav .navActive {
 
 .workflowCards {
   display: grid;
-  gap: 20px 24px;
+  gap: 16px 24px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .workflowCard {
   background: linear-gradient(180deg, #1b2127, #151a1f);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: 0 12px 34px rgba(29, 37, 48, 0.05);
   display: flex;
   flex-direction: column;
-  min-height: 312px;
-  padding: 18px;
+  min-height: 0;
+  padding: 16px 18px;
 }
 
 .workflowCard.featuredCard {
@@ -288,16 +288,16 @@ nav .navActive {
   align-items: flex-start;
   display: flex;
   justify-content: space-between;
-  min-height: 56px;
+  min-height: 44px;
 }
 
 .workflowIcon {
   align-items: center;
-  border-radius: 10px;
+  border-radius: 9px;
   display: inline-flex;
-  height: 52px;
+  height: 44px;
   justify-content: center;
-  width: 52px;
+  width: 44px;
 }
 
 .workflowIcon.small {
@@ -364,20 +364,20 @@ nav .navActive {
   font-size: 12px;
   font-weight: 800;
   gap: 5px;
-  padding: 6px 10px;
+  padding: 5px 9px;
 }
 
 .workflowCard h2 {
   display: block;
   font-size: 17px;
-  margin: 12px 0 8px;
+  margin: 9px 0 7px;
 }
 
 .workflowCard p {
   color: #aab4be;
   line-height: 1.45;
   margin: 0;
-  min-height: 44px;
+  min-height: 62px;
 }
 
 .categoryTag {
@@ -388,8 +388,8 @@ nav .navActive {
   font-size: 13px;
   font-weight: 700;
   gap: 6px;
-  margin-top: 12px;
-  padding: 5px 9px;
+  margin-top: 10px;
+  padding: 4px 8px;
 }
 
 .categoryTag .icon {
@@ -402,8 +402,8 @@ nav .navActive {
 
 .workflowMeta {
   display: grid;
-  gap: 8px;
-  margin: 16px 0;
+  gap: 6px;
+  margin: 12px 0;
 }
 
 .workflowMeta div {
@@ -427,27 +427,28 @@ nav .navActive {
 }
 
 .openWorkflow {
-  justify-content: space-between;
+  gap: 8px;
+  justify-content: center;
   margin-top: auto;
-  min-height: 40px;
+  min-height: 38px;
   min-width: 100%;
 }
 
 .dashboardRail {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .dashboardRail .card {
   box-shadow: 0 12px 34px rgba(29, 37, 48, 0.05);
-  padding: 20px;
+  padding: 18px 20px;
 }
 
 .railMetric {
   align-items: center;
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
+  padding: 7px 0;
 }
 
 .railMetric span {
@@ -460,8 +461,8 @@ nav .navActive {
   border-top: 1px solid var(--line);
   color: #8ef0b1;
   font-weight: 700;
-  margin-top: 10px;
-  padding: 16px 0 0;
+  margin-top: 8px;
+  padding: 14px 0 0;
   text-align: left;
   width: 100%;
 }
@@ -483,7 +484,7 @@ nav .navActive {
   align-items: center;
   display: flex;
   gap: 12px;
-  margin-top: 18px;
+  margin-top: 15px;
 }
 
 .recentItem strong,
@@ -501,7 +502,7 @@ nav .navActive {
   align-items: center;
   display: flex;
   gap: 4px;
-  margin: 12px 0;
+  margin: 10px 0;
 }
 
 .railNote {
@@ -699,9 +700,10 @@ hr {
   font-weight: 700;
   gap: 10px;
   justify-content: center;
-  min-height: 48px;
-  min-width: 210px;
+  min-height: 46px;
+  min-width: 208px;
   padding: 0 22px;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .primary {

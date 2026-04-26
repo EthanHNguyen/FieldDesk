@@ -2,7 +2,7 @@ export const missionIntent =
   "Send 10 soldiers to Demo Training Site for training from June 10-14. Lodging and rental vehicles required.";
 
 export const missionSummary = {
-  workflow: "TDY Travel",
+  workflow: "TDY",
   destination: "Demo Training Site",
   dates: "June 10-14",
   travelers: "10"
@@ -33,7 +33,7 @@ export const expectedOutputs = ["Evidence Map", "Readiness Assessment", "Reviewe
 
 export const workflows = [
   {
-    title: "TDY Travel Readiness",
+    title: "TDY Readiness",
     description: "Collect evidence, surface gaps, and prepare work for DTS routing.",
     category: "Travel",
     icon: "Airplane",

@@ -53,7 +53,7 @@ async function requestOpenRouterCompletion({ apiKey, model, context }: { apiKey:
         {
           role: "user",
           content: JSON.stringify({
-            task: "Analyze the TDY Travel Readiness workflow using only the current AgentRunContext and return FieldDeskAgentObjectOutput JSON.",
+            task: "Analyze the TDY readiness workflow using only the current AgentRunContext and return FieldDeskAgentObjectOutput JSON.",
             agentRunContext: context,
             outputGuidance: {
               statuses: ["Found", "Weak", "Missing", "Conflict", "Resolved", "Improved", "High", "Low"],

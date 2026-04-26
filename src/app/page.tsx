@@ -144,7 +144,7 @@ export default function Home() {
         ) : (
           <>
             <section className="hero">
-              <h1>TDY Travel Readiness</h1>
+              <h1>TDY Readiness</h1>
               <p>Transforms fragmented administrative work into mission-ready action.</p>
               <p>Reduce drag. Surface gaps. Accelerate execution.</p>
             </section>
@@ -424,7 +424,7 @@ function DashboardRail() {
           </button>
         </div>
         {[
-          ["TDY Travel Readiness", "Opened 2h ago", "Airplane"],
+          ["TDY Readiness", "Opened 2h ago", "Airplane"],
           ["Supply Request", "Updated yesterday", "Cube"],
           ["Leave Request", "Used this week", "Calendar"]
         ].map(([title, detail, icon]) => (
