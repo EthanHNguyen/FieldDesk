@@ -25,10 +25,12 @@ FieldDesk is not a regulation chatbot. It is an agentic workflow platform for ad
 ![FieldDesk workflows dashboard](./screenshots/00-workflows-dashboard.png)
 
 <p align="center" width="100%">
-  <video src="./assets/fielddesk-demo.mp4" width="80%" controls title="FieldDesk demo"></video>
+  <video src="https://github.com/user-attachments/assets/9c278485-b2ca-4285-9d5b-b534a730b5a0" width="80%" controls title="FieldDesk demo"></video>
 </p>
 
-### The Workflow
+
+
+ The Workflow
 
 We started with **TDY** because it is concrete, common, and painful.
 
