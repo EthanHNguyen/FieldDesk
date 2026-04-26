@@ -832,7 +832,7 @@ function ResolveRecompute({ run, onExport }: { run: FieldDeskAgentRun; onExport:
           <Icon name="Document" /> Generate Final Package
         </button>
         <button type="button" className="secondary" onClick={onExport}>
-          <Icon name="Export" /> Export to DTS
+          <Icon name="Export" /> Start Automated DTS Entry
         </button>
       </div>
     </div>
@@ -887,7 +887,7 @@ function ExportDts({ run }: { run: FieldDeskAgentRun }) {
         </div>
         <div className="buttonRow left">
           <button type="button" className="primary">
-            <Icon name="Export" /> Export to DTS
+            <Icon name="Export" /> Start Automated DTS Entry
           </button>
           <button type="button" className="secondary">
             <Icon name="Download" /> Download Package
