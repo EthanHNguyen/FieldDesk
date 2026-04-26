@@ -339,7 +339,7 @@ function WorkflowsDashboard({ onOpen }: { onOpen: () => void }) {
           <div className="filterBar">
             <label className="searchBox">
               <Icon name="Search" />
-              <input aria-label="Search workflows" placeholder="Search workflows..." />
+              <input aria-label="Search workflows" placeholder="Search workflows..." suppressHydrationWarning />
             </label>
             {["All", "Travel", "Personnel", "Logistics", "Readiness", "Recently used"].map((filter) => (
               <button className={filter === "All" ? "filterActive" : ""} type="button" key={filter}>
@@ -929,6 +929,11 @@ function JustificationResolution({
 }
 
 function ResolveRecompute({ run, onExport }: { run: FieldDeskAgentRun; onExport: () => void }) {
+  const issueCorrections = run.issues
+    .filter((issue) => ["Resolved", "Found", "Improved"].includes(issue.status))
+    .map((issue) => [issue.title, issue.status] as const);
+  const correctionsApplied = issueCorrections.length > run.corrections.length ? issueCorrections : run.corrections;
+
   return (
     <div className="stack">
       <Card className="successCard">
@@ -955,7 +960,7 @@ function ResolveRecompute({ run, onExport }: { run: FieldDeskAgentRun; onExport:
       <Card>
         <h2>Corrections Applied</h2>
         <div className="correctionGrid">
-          {run.corrections.map(([name, state]) => (
+          {correctionsApplied.map(([name, state]) => (
             <div className="correction" key={name}>
               <Icon name={name} />
               <div>

@@ -1013,13 +1013,26 @@ td .icon {
   align-items: center;
   display: grid;
   gap: 28px;
-  grid-template-columns: 230px 230px 1fr;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(220px, 1fr);
+}
+
+.successCard .readinessGrid {
+  gap: 24px;
+  grid-template-columns: minmax(150px, 0.75fr) minmax(180px, 0.85fr) minmax(240px, 1.35fr);
+}
+
+.successCard .statusMatrix {
+  grid-template-columns: 1fr;
 }
 
 .scoreBlock {
   border-right: 1px solid var(--line);
   min-height: 120px;
   padding: 20px 30px 18px 0;
+}
+
+.successCard .scoreBlock {
+  padding-right: 20px;
 }
 
 .scoreBlock > span {
@@ -1071,13 +1084,14 @@ td .icon {
 
 .statusMatrix {
   display: grid;
-  gap: 12px 30px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 24px;
+  grid-template-columns: 1fr;
 }
 
 .statusMatrix div {
   align-items: center;
   display: flex;
+  gap: 12px;
   justify-content: space-between;
 }
 
@@ -1158,7 +1172,7 @@ td .icon {
 .resolverGrid {
   display: grid;
   gap: 20px;
-  grid-template-columns: 370px minmax(0, 1fr);
+  grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1fr);
   margin-top: 22px;
 }
 
@@ -1251,8 +1265,13 @@ td .icon {
   border-radius: 8px;
   display: grid;
   gap: 14px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   padding: 14px;
+}
+
+.evidenceDrop .pill {
+  grid-column: 2;
+  justify-self: start;
 }
 
 .evidenceDrop strong,
@@ -1323,7 +1342,7 @@ td .icon {
 .correctionGrid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .correction {
@@ -1346,7 +1365,7 @@ td .icon {
 .correction strong {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .correction span {

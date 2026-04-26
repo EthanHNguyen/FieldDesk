@@ -102,9 +102,9 @@ The repo is not yet using a true model-driven tool loop in the active API path. 
   - [x] `npm run test:e2e`
   - [x] `npm run eval:mock`
   - [x] `npm run eval:openrouter`
-- [ ] Start the app on `localhost:3000`.
-- [ ] Capture screenshots for each screen.
-- [ ] Verify:
+- [x] Start the app on `localhost:3000`.
+- [x] Capture screenshots for each screen.
+- [x] Verify:
   - top classification banner only
   - no bottom banner
   - source rows show all selected sources
