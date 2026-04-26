@@ -40,7 +40,7 @@ import {
   Wrench,
   type LucideIcon
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { requestFieldDeskAgentRun } from "../lib/fielddesk-client";
 import {
   expectedOutputs,
@@ -69,8 +69,7 @@ export default function Home() {
   );
   const [agentRun, setAgentRun] = useState<FieldDeskAgentRun | null>(null);
   const [agentRunError, setAgentRunError] = useState<string | null>(null);
-  const selectedSources = useMemo(() => [...sourceToggles], []);
-  const foundCount = useMemo(() => agentRun?.evidenceMap.filter((row) => row[3] === "Found" || row[3] === "Resolved").length ?? 0, [agentRun]);
+  const [selectedSources, setSelectedSources] = useState<string[]>(() => [...sourceToggles]);
   const allIssuesResolved = resolution.roster && resolution.funding && resolution.justification;
 
   useEffect(() => {
@@ -112,6 +111,7 @@ export default function Home() {
     setResolved(false);
     setResolution(initialResolutionState);
     setActiveIssue("roster");
+    setSelectedSources([...sourceToggles]);
   }
 
   function stageResolution(key: IssueId) {
@@ -141,10 +141,18 @@ export default function Home() {
             </section>
             <div className="workspace">
               <section className="mainPanel">
-                {step === 1 && <CaptureIntent intent={intent} setIntent={setIntent} onStart={() => advance(2)} />}
+                {step === 1 && (
+                  <CaptureIntent
+                    intent={intent}
+                    selectedSources={selectedSources}
+                    setIntent={setIntent}
+                    setSelectedSources={setSelectedSources}
+                    onStart={() => advance(2)}
+                  />
+                )}
                 {step !== 1 && !agentRun && <AgentRunState error={agentRunError} />}
                 {step === 2 && agentRun && <SearchSources intent={intent} run={agentRun} onNext={() => advance(3)} />}
-                {step === 3 && agentRun && <EvidenceMap foundCount={foundCount} run={agentRun} onNext={() => advance(4)} />}
+                {step === 3 && agentRun && <EvidenceMap run={agentRun} onNext={() => advance(4)} />}
                 {step === 4 && agentRun && (
                   <SurfaceGaps
                     activeIssue={activeIssue}
@@ -357,7 +365,27 @@ function DashboardRail() {
   );
 }
 
-function CaptureIntent({ intent, setIntent, onStart }: { intent: string; setIntent: (value: string) => void; onStart: () => void }) {
+function CaptureIntent({
+  intent,
+  selectedSources,
+  setIntent,
+  setSelectedSources,
+  onStart
+}: {
+  intent: string;
+  selectedSources: string[];
+  setIntent: (value: string) => void;
+  setSelectedSources: (value: string[]) => void;
+  onStart: () => void;
+}) {
+  function toggleSource(source: string) {
+    setSelectedSources(
+      selectedSources.includes(source)
+        ? selectedSources.filter((selected) => selected !== source)
+        : [...selectedSources, source]
+    );
+  }
+
   return (
     <Card>
       <SectionTitle number="1" title="Mission Intent" />
@@ -372,7 +400,7 @@ function CaptureIntent({ intent, setIntent, onStart }: { intent: string; setInte
       <p className="muted">Select the authoritative sources to ground analysis.</p>
       <div className="toggleGrid">
         {sourceToggles.map((source) => (
-          <SourceToggle key={source} label={source} />
+          <SourceToggle active={selectedSources.includes(source)} key={source} label={source} onToggle={() => toggleSource(source)} />
         ))}
       </div>
       <Divider />
@@ -406,7 +434,7 @@ function SearchSources({ intent, run, onNext }: { intent: string; run: FieldDesk
       <div className="analysisBanner">
         <span className="spinner" />
         <div>
-          <strong>Collecting evidence across 8 sources</strong>
+          <strong>Collecting evidence across {run.sourceSearchResults.length} sources</strong>
           <span>This may take a few moments.</span>
         </div>
         <span className="progressText">Analysis in progress</span>
@@ -426,7 +454,10 @@ function SearchSources({ intent, run, onNext }: { intent: string; run: FieldDesk
                 <Icon name={source} /> {source}
               </td>
               <td>
-                <StatusPill status={source === "Funding Folder" ? "Missing" : "Found"} label={source === "Funding Folder" ? "Not Found" : "Complete"} />
+                <StatusPill
+                  status={result.includes("disabled") || source === "Funding Folder" ? "Missing" : "Found"}
+                  label={result.includes("disabled") ? "Disabled" : source === "Funding Folder" ? "Not Found" : "Complete"}
+                />
               </td>
               <td>{result}</td>
             </tr>
@@ -444,7 +475,11 @@ function SearchSources({ intent, run, onNext }: { intent: string; run: FieldDesk
   );
 }
 
-function EvidenceMap({ foundCount, run, onNext }: { foundCount: number; run: FieldDeskAgentRun; onNext: () => void }) {
+function EvidenceMap({ run, onNext }: { run: FieldDeskAgentRun; onNext: () => void }) {
+  const foundCount = run.evidenceMap.filter((row) => row[3] === "Found" || row[3] === "Resolved").length;
+  const weakCount = run.evidenceMap.filter((row) => row[3] === "Weak" || row[3] === "Improved").length;
+  const missingCount = run.evidenceMap.filter((row) => row[3] === "Missing" || row[3] === "Conflict").length;
+
   return (
     <Card>
       <div className="cardHeader">
@@ -454,8 +489,8 @@ function EvidenceMap({ foundCount, run, onNext }: { foundCount: number; run: Fie
         </div>
         <div className="summaryPills">
           <Counter color="green" value={foundCount} label="Found" />
-          <Counter color="orange" value={1} label="Weak" />
-          <Counter color="red" value={1} label="Missing" />
+          <Counter color="orange" value={weakCount} label="Weak" />
+          <Counter color="red" value={missingCount} label="Missing" />
         </div>
       </div>
       <table>
@@ -536,6 +571,7 @@ function SurfaceGaps({
         activeIssue={activeIssue}
         justification={justification}
         resolution={resolution}
+        run={run}
         onActiveIssue={onActiveIssue}
         onJustificationChange={onJustificationChange}
         onStageResolution={onStageResolution}
@@ -564,6 +600,7 @@ function IssueResolutionWorkspace({
   activeIssue,
   justification,
   resolution,
+  run,
   onActiveIssue,
   onJustificationChange,
   onStageResolution
@@ -571,39 +608,13 @@ function IssueResolutionWorkspace({
   activeIssue: keyof ResolutionState;
   justification: string;
   resolution: ResolutionState;
+  run: FieldDeskAgentRun;
   onActiveIssue: (issue: keyof ResolutionState) => void;
   onJustificationChange: (value: string) => void;
   onStageResolution: (issue: keyof ResolutionState) => void;
 }) {
-  const issueRows: Array<{
-    id: keyof ResolutionState;
-    title: string;
-    status: Status;
-    summary: string;
-    owner: string;
-  }> = [
-    {
-      id: "roster",
-      title: "Traveler count mismatch",
-      status: resolution.roster ? "Resolved" : "Conflict",
-      summary: "Intent and order show 10 travelers; roster_v2.csv lists 8.",
-      owner: "Junior NCO"
-    },
-    {
-      id: "funding",
-      title: "Funding source missing",
-      status: resolution.funding ? "Found" : "Missing",
-      summary: "No funding memo, fund cite, or funding approval artifact found.",
-      owner: "Junior NCO"
-    },
-    {
-      id: "justification",
-      title: "Rental vehicle justification weak",
-      status: resolution.justification ? "Improved" : "Weak",
-      summary: "Rental vehicles are requested, but mission-specific support is thin.",
-      owner: "FieldDesk + Junior NCO"
-    }
-  ];
+  const activeIssueData = run.issues.find((issue) => issue.id === activeIssue);
+  const openIssueCount = run.issues.filter((issue) => !["Found", "Improved", "Resolved"].includes(issue.status)).length;
 
   return (
     <Card>
@@ -614,11 +625,11 @@ function IssueResolutionWorkspace({
           </h2>
           <p className="muted">Select a blocker, take a suggested action, then recompute readiness when evidence is staged.</p>
         </div>
-        <StatusPill status={Object.values(resolution).every(Boolean) ? "Low" : "High"} label={Object.values(resolution).every(Boolean) ? "Ready to recompute" : "3 blockers"} />
+        <StatusPill status={Object.values(resolution).every(Boolean) ? "Low" : "High"} label={Object.values(resolution).every(Boolean) ? "Ready to recompute" : `${openIssueCount} blockers`} />
       </div>
       <div className="resolverGrid">
         <div className="issueQueue">
-          {issueRows.map((issue, index) => (
+          {run.issues.map((issue, index) => (
             <button
               className={`issueQueueItem ${activeIssue === issue.id ? "active" : ""}`}
               key={issue.id}
@@ -636,13 +647,14 @@ function IssueResolutionWorkspace({
         </div>
         <div className="issueWorkbench">
           {activeIssue === "roster" && (
-            <RosterResolution resolved={resolution.roster} onStage={() => onStageResolution("roster")} />
+            <RosterResolution actions={activeIssueData?.suggestedActions ?? []} resolved={resolution.roster} onStage={() => onStageResolution("roster")} />
           )}
           {activeIssue === "funding" && (
-            <FundingResolution resolved={resolution.funding} onStage={() => onStageResolution("funding")} />
+            <FundingResolution actions={activeIssueData?.suggestedActions ?? []} resolved={resolution.funding} onStage={() => onStageResolution("funding")} />
           )}
           {activeIssue === "justification" && (
             <JustificationResolution
+              actions={activeIssueData?.suggestedActions ?? []}
               justification={justification}
               resolved={resolution.justification}
               onChange={onJustificationChange}
@@ -655,7 +667,7 @@ function IssueResolutionWorkspace({
   );
 }
 
-function RosterResolution({ resolved, onStage }: { resolved: boolean; onStage: () => void }) {
+function RosterResolution({ actions, resolved, onStage }: { actions: string[]; resolved: boolean; onStage: () => void }) {
   return (
     <div className="resolutionPanel">
       <GapTitle number="1" title="Conflict Detected" />
@@ -685,7 +697,7 @@ function RosterResolution({ resolved, onStage }: { resolved: boolean; onStage: (
         </div>
         <StatusPill status={resolved ? "Resolved" : "Found"} label={resolved ? "Staged" : "Suggested"} />
       </div>
-      <ActionChips actions={["Use corrected roster", "Keep request at 10 travelers", "Attach roster delta note"]} />
+      <ActionChips actions={actions} />
       <button className="primary" type="button" onClick={onStage}>
         <Icon name="Upload" /> {resolved ? "Correction Staged" : "Stage Corrected Roster"}
       </button>
@@ -693,7 +705,7 @@ function RosterResolution({ resolved, onStage }: { resolved: boolean; onStage: (
   );
 }
 
-function FundingResolution({ resolved, onStage }: { resolved: boolean; onStage: () => void }) {
+function FundingResolution({ actions, resolved, onStage }: { actions: string[]; resolved: boolean; onStage: () => void }) {
   return (
     <div className="resolutionPanel">
       <GapTitle number="2" title="Missing Artifact" />
@@ -709,7 +721,7 @@ function FundingResolution({ resolved, onStage }: { resolved: boolean; onStage: 
         </div>
         <StatusPill status={resolved ? "Resolved" : "Found"} label={resolved ? "Attached" : "Found in folder"} />
       </div>
-      <ActionChips actions={["Attach funding memo", "Extract fund cite", "Link approval email"]} />
+      <ActionChips actions={actions} />
       <button className="primary" type="button" onClick={onStage}>
         <Icon name="Upload" /> {resolved ? "Funding Attached" : "Attach Funding Memo"}
       </button>
@@ -718,11 +730,13 @@ function FundingResolution({ resolved, onStage }: { resolved: boolean; onStage: 
 }
 
 function JustificationResolution({
+  actions,
   justification,
   resolved,
   onChange,
   onStage
 }: {
+  actions: string[];
   justification: string;
   resolved: boolean;
   onChange: (value: string) => void;
@@ -739,7 +753,7 @@ function JustificationResolution({
         value={justification}
         onChange={(event) => onChange(event.target.value)}
       />
-      <ActionChips actions={["Accept suggested language", "Add to packet summary", "Flag for reviewer visibility"]} />
+      <ActionChips actions={actions} />
       <button className="primary" type="button" onClick={onStage}>
         <Icon name="Document" /> {resolved ? "Justification Added" : "Add Justification"}
       </button>
@@ -764,23 +778,11 @@ function ResolveRecompute({ run, onExport }: { run: FieldDeskAgentRun; onExport:
           </div>
           <div className="scoreBlock">
             <span>Risk of Return</span>
-            <strong className="riskLow">
-              <ShieldCheck size={30} aria-hidden="true" /> Low
+            <strong className={run.readiness.risk === "Low" ? "riskLow" : "riskHigh"}>
+              <ShieldCheck size={30} aria-hidden="true" /> {run.readiness.risk}
             </strong>
           </div>
-          <StatusMatrix
-            items={[
-              ["Mission intent", "Found"],
-              ["Destination", "Found"],
-              ["Dates", "Found"],
-              ["Traveler count", "Resolved"],
-              ["Approval", "Found"],
-              ["Per diem", "Found"],
-              ["Funding", "Found"],
-              ["Rental vehicle", "Improved"],
-              ["Reviewer risk", "Low"]
-            ]}
-          />
+          <StatusMatrix items={run.readiness.areas} />
         </div>
       </Card>
       <Card>
@@ -818,7 +820,7 @@ function ResolveRecompute({ run, onExport }: { run: FieldDeskAgentRun; onExport:
                 </td>
                 <td>{owner}</td>
                 <td>
-                  <StatusPill status={status === "Ready" ? "Low" : "Found"} label={status} />
+                  <StatusPill status={status === "Ready" ? "Low" : status === "Open" ? "Weak" : "Found"} label={status} />
                 </td>
               </tr>
             ))}
@@ -930,6 +932,18 @@ function MissionRail({ run, step, resolved }: { run: FieldDeskAgentRun; step: St
           );
         })}
       </div>
+      <div className="progress">
+        <h2>Activity Trail</h2>
+        {run.activityTrail.map((event) => (
+          <div className="activityItem" key={event.label}>
+            <StatusPill status={event.status} />
+            <div>
+              <strong>{event.label}</strong>
+              <span>{event.detail}</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </aside>
   );
 }
@@ -958,13 +972,13 @@ function Info() {
   );
 }
 
-function SourceToggle({ label }: { label: string }) {
+function SourceToggle({ active, label, onToggle }: { active: boolean; label: string; onToggle: () => void }) {
   return (
-    <span className="sourceToggle">
+    <button aria-pressed={active} className={`sourceToggle ${active ? "" : "inactive"}`} onClick={onToggle} type="button">
       <Icon name={label} />
       {label}
       <span className="switch"><span /></span>
-    </span>
+    </button>
   );
 }
 

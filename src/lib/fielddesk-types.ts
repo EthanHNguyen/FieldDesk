@@ -25,6 +25,21 @@ export type ActionItem = readonly [action: string, owner: string, status: string
 
 export type DtsExportRow = readonly [field: string, value: string];
 
+export type AgentIssue = {
+  id: IssueId;
+  title: string;
+  status: Status;
+  summary: string;
+  owner: string;
+  suggestedActions: string[];
+};
+
+export type ActivityEvent = {
+  label: string;
+  detail: string;
+  status: Status;
+};
+
 export type FieldDeskAgentRun = {
   mission: {
     workflow: string;
@@ -40,9 +55,11 @@ export type FieldDeskAgentRun = {
     riskLabel: string;
     areas: ReadonlyArray<ReadinessArea>;
   };
+  issues: ReadonlyArray<AgentIssue>;
   reviewerQuestions: ReadonlyArray<string>;
   corrections: ReadonlyArray<CorrectionItem>;
   actionList: ReadonlyArray<ActionItem>;
   dtsRows: ReadonlyArray<DtsExportRow>;
   packageRows: ReadonlyArray<string>;
+  activityTrail: ReadonlyArray<ActivityEvent>;
 };

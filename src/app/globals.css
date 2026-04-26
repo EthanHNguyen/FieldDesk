@@ -607,9 +607,12 @@ hr {
 .sourceToggle,
 .checkItem {
   background: #14191f;
+  color: var(--text);
+  font: inherit;
   gap: 10px;
   min-height: 58px;
   padding: 0 14px;
+  text-align: left;
 }
 
 .sourceToggle .icon,
@@ -618,7 +621,22 @@ hr {
 }
 
 .sourceToggle {
+  cursor: pointer;
   min-width: 0;
+}
+
+.sourceToggle.inactive {
+  background: #101419;
+  border-color: #2a3139;
+  color: #8d98a5;
+}
+
+.sourceToggle.inactive .switch {
+  background: #38424d;
+}
+
+.sourceToggle.inactive .switch span {
+  margin-left: 0;
 }
 
 .sourceToggle .switch {
@@ -803,6 +821,28 @@ hr {
   display: block;
   font-size: 14px;
   margin-top: 5px;
+}
+
+.activityItem {
+  align-items: flex-start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr;
+  margin-bottom: 14px;
+}
+
+.activityItem strong {
+  color: var(--text);
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.activityItem span:last-child {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .analysisBanner {

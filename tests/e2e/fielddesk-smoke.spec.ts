@@ -68,3 +68,18 @@ test("manual issue resolution stages selected actions before recompute", async (
   await page.getByRole("button", { name: /Generate Final Package/ }).click();
   await expect(page.getByRole("heading", { name: "DTS Authorization Draft" })).toBeVisible();
 });
+
+test("source toggles degrade evidence through the agent API", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  await page.locator(".workflowCard", { hasText: "TDY Travel Readiness" }).getByRole("button", { name: /Open/ }).click();
+  await page.getByRole("button", { name: "GSA" }).click();
+  await page.getByRole("button", { name: /Start Analysis/ }).click();
+
+  await expect(page.getByRole("heading", { name: /Search Sources/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /GSA Disabled Source disabled/ })).toBeVisible();
+  await page.getByRole("button", { name: "Build Evidence Map" }).click();
+
+  await expect(page.getByRole("row", { name: /Per diem estimate Source disabled GSA.*Missing/ })).toBeVisible();
+});

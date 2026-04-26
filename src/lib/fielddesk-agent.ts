@@ -9,7 +9,7 @@ import {
   reviewerQuestions,
   sourceSearchResults
 } from "./fielddesk-static";
-import type { AgentRunInput, EvidenceMapItem, FieldDeskAgentRun, ReadinessArea } from "./fielddesk-types";
+import type { ActivityEvent, AgentIssue, AgentRunInput, EvidenceMapItem, FieldDeskAgentRun, ReadinessArea, SourceSearchResult, Status } from "./fielddesk-types";
 
 const resolvedReadinessAreas: ReadinessArea[] = [
   ["Mission intent", "Found"],
@@ -25,22 +25,29 @@ const resolvedReadinessAreas: ReadinessArea[] = [
 
 export function runFieldDeskAgent(input: AgentRunInput): FieldDeskAgentRun {
   const allResolved = input.resolutions.roster && input.resolutions.funding && input.resolutions.justification;
+  const evidence = buildEvidenceMap(input);
+  const issues = buildIssues(input);
+  const sourceDegraded = input.selectedSources.length < 6;
+  const score = allResolved ? 91 : Math.max(48, 72 - disabledSourcePenalty(input));
+  const risk = allResolved && !sourceDegraded ? "Low" : "High";
 
   return {
     mission: missionSummary,
-    sourceSearchResults: [...sourceSearchResults],
-    evidenceMap: buildEvidenceMap(input),
+    sourceSearchResults: buildSourceSearchResults(input),
+    evidenceMap: evidence,
     readiness: {
-      score: allResolved ? 91 : 72,
-      risk: allResolved ? "Low" : "High",
-      riskLabel: allResolved ? "Ready to route" : "High review risk",
-      areas: allResolved ? resolvedReadinessAreas : [...readinessAreas]
+      score,
+      risk,
+      riskLabel: risk === "Low" ? "Ready to route" : sourceDegraded ? "Source coverage gap" : "High review risk",
+      areas: buildReadinessAreas(input, risk)
     },
+    issues,
     reviewerQuestions: buildReviewerQuestions(input),
     corrections: buildCorrections(input),
     actionList: buildActionList(input),
     dtsRows: [...dtsRows],
-    packageRows: [...packageRows]
+    packageRows: [...packageRows],
+    activityTrail: buildActivityTrail(input, issues)
   };
 }
 
@@ -55,8 +62,82 @@ function buildEvidenceMap(input: AgentRunInput): EvidenceMapItem[] {
     if (requirement === "Funding source" && input.resolutions.funding) {
       return [requirement, "funding_memo.pdf", "Funding Folder", "Found"];
     }
+    const sourceStatus = statusForDisabledSource(requirement, input.selectedSources);
+    if (sourceStatus) {
+      return [requirement, sourceStatus.evidence, sourceStatus.source, sourceStatus.status];
+    }
     return [requirement, evidence, source, status];
   });
+}
+
+function buildSourceSearchResults(input: AgentRunInput): SourceSearchResult[] {
+  return sourceSearchResults.map(([source, finding]) => {
+    if (source === "Funding Folder") return [source, finding];
+    if (!input.selectedSources.includes(source)) {
+      return [source, "Source disabled for this run"];
+    }
+    return [source, finding];
+  });
+}
+
+function buildReadinessAreas(input: AgentRunInput, risk: "High" | "Low"): ReadinessArea[] {
+  const base = input.resolutions.roster && input.resolutions.funding && input.resolutions.justification ? resolvedReadinessAreas : readinessAreas;
+
+  return base.map(([area, status]) => {
+    if (area === "Approval" && !input.selectedSources.includes("Outlook")) return [area, "Missing"];
+    if ((area === "Traveler count" || area === "Funding") && !input.selectedSources.includes("SharePoint")) return [area, "Missing"];
+    if (area === "Per diem" && !input.selectedSources.includes("GSA")) return [area, "Missing"];
+    if (area === "Rental vehicle" && !input.selectedSources.includes("JTR")) return [area, "Weak"];
+    if (area === "Reviewer risk") return [area, risk];
+    return [area, status];
+  });
+}
+
+function buildIssues(input: AgentRunInput): AgentIssue[] {
+  const issues: AgentIssue[] = [
+    {
+      id: "roster",
+      title: "Traveler count mismatch",
+      status: input.resolutions.roster ? "Resolved" : "Conflict",
+      summary: "Intent and order show 10 travelers; roster_v2.csv lists 8.",
+      owner: "Junior NCO",
+      suggestedActions: ["Use corrected roster", "Keep request at 10 travelers", "Attach roster delta note"]
+    },
+    {
+      id: "funding",
+      title: "Funding source missing",
+      status: input.resolutions.funding ? "Found" : "Missing",
+      summary: "No funding memo, fund cite, or funding approval artifact found.",
+      owner: "Junior NCO",
+      suggestedActions: ["Attach funding memo", "Extract fund cite", "Link approval email"]
+    },
+    {
+      id: "justification",
+      title: "Rental vehicle justification weak",
+      status: input.resolutions.justification ? "Improved" : "Weak",
+      summary: "Rental vehicles are requested, but mission-specific support is thin.",
+      owner: "FieldDesk + Junior NCO",
+      suggestedActions: ["Accept suggested language", "Add to packet summary", "Flag for reviewer visibility"]
+    }
+  ];
+
+  return issues;
+}
+
+function statusForDisabledSource(requirement: string, selectedSources: string[]): { evidence: string; source: string; status: Status } | null {
+  if ((requirement === "Approval") && !selectedSources.includes("Outlook")) {
+    return { evidence: "Source disabled", source: "Outlook", status: "Missing" };
+  }
+  if ((requirement === "Traveler roster" || requirement === "Unit checklist") && !selectedSources.includes("SharePoint")) {
+    return { evidence: "Source disabled", source: "SharePoint", status: "Missing" };
+  }
+  if (requirement === "Per diem estimate" && !selectedSources.includes("GSA")) {
+    return { evidence: "Source disabled", source: "GSA", status: "Missing" };
+  }
+  if (requirement === "Policy reference" && !selectedSources.includes("JTR")) {
+    return { evidence: "Source disabled", source: "JTR", status: "Missing" };
+  }
+  return null;
 }
 
 function buildReviewerQuestions(input: AgentRunInput) {
@@ -86,4 +167,36 @@ function buildActionList(input: AgentRunInput) {
     if (action.includes("rental")) return [action, owner, input.resolutions.justification ? "Complete" : "Open"] as const;
     return [action, owner, status] as const;
   });
+}
+
+function buildActivityTrail(input: AgentRunInput, issues: AgentIssue[]): ActivityEvent[] {
+  const stagedCount = Object.values(input.resolutions).filter(Boolean).length;
+  const openCount = issues.filter((issue) => issue.status !== "Resolved" && issue.status !== "Improved" && issue.status !== "Found").length;
+
+  return [
+    {
+      label: "Intent captured",
+      detail: "Mission request parsed for TDY readiness.",
+      status: "Found"
+    },
+    {
+      label: "Sources searched",
+      detail: `${input.selectedSources.length} source sets enabled.`,
+      status: input.selectedSources.length >= 6 ? "Found" : "Weak"
+    },
+    {
+      label: "Issues surfaced",
+      detail: `${openCount} blocker${openCount === 1 ? "" : "s"} require action.`,
+      status: openCount > 0 ? "High" : "Low"
+    },
+    {
+      label: "Actions staged",
+      detail: `${stagedCount} of 3 corrective actions staged.`,
+      status: stagedCount === 3 ? "Resolved" : "Weak"
+    }
+  ];
+}
+
+function disabledSourcePenalty(input: AgentRunInput) {
+  return sourceSearchResults.filter(([source]) => source !== "Funding Folder" && !input.selectedSources.includes(source)).length * 6;
 }
