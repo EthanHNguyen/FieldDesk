@@ -40,7 +40,7 @@ import {
   Wrench,
   type LucideIcon
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { requestFieldDeskAgentRun } from "../lib/fielddesk-client";
 import {
   expectedOutputs,
@@ -159,7 +159,14 @@ export default function Home() {
                     onStart={() => void submitAgentRun({ nextStep: 2, trigger: "initial_analysis" })}
                   />
                 )}
-                {step !== 1 && !agentRun && <AgentRunState error={agentRunError} />}
+                {step !== 1 && !agentRun && (
+                  <AgentRunState
+                    error={agentRunError}
+                    resolution={resolution}
+                    selectedSources={selectedSources}
+                    step={step}
+                  />
+                )}
                 {step === 2 && agentRun && <SearchSources intent={intent} run={agentRun} onNext={() => advance(3)} />}
                 {step === 3 && agentRun && <EvidenceMap run={agentRun} onNext={() => advance(4)} />}
                 {step === 4 && agentRun && (
@@ -188,16 +195,92 @@ export default function Home() {
   );
 }
 
-function AgentRunState({ error }: { error: string | null }) {
+function AgentRunState({
+  error,
+  resolution,
+  selectedSources,
+  step
+}: {
+  error: string | null;
+  resolution: ResolutionState;
+  selectedSources: string[];
+  step: Step;
+}) {
+  const correctionMode = step >= 5;
+  const steps = correctionMode
+    ? [
+        {
+          icon: "Upload",
+          title: "Ingest staged evidence",
+          detail: [
+            resolution.roster ? "Corrected roster" : null,
+            resolution.funding ? "Funding memo" : null,
+            resolution.justification ? "Vehicle justification" : null
+          ].filter(Boolean).join(", ") || "Waiting for staged corrections"
+        },
+        { icon: "Document", title: "Rebuild evidence map", detail: "Refreshing requirement coverage from the updated packet." },
+        { icon: "Readiness", title: "Re-score readiness", detail: "Checking whether blockers moved from open risk to route-ready." },
+        { icon: "Action List", title: "Prepare final work product", detail: "Updating reviewer notes, action list, and DTS draft fields." }
+      ]
+    : [
+        ...selectedSources.map((source) => ({
+          icon: source,
+          title: `Searching ${source}`,
+          detail: sourceDetail(source)
+        })),
+        { icon: "Library", title: "Consolidating evidence", detail: "Deduplicating source findings and aligning them to TDY requirements." },
+        { icon: "Alert", title: "Analyzing gaps and conflicts", detail: "Checking for missing funding, roster mismatches, and weak justifications." },
+        { icon: "Readiness", title: "Preparing readiness assessment", detail: "Scoring return risk and drafting reviewer objections." }
+      ];
+
   return (
     <Card>
       <h2>
         <Icon name="Activity" /> Agent Run
       </h2>
-      <p className="muted">{error ?? "Preparing workflow analysis..."}</p>
-      {error && <StatusPill status="High" label="API boundary unavailable" />}
+      {error ? (
+        <>
+          <p className="muted">{error}</p>
+          <StatusPill status="High" label="API boundary unavailable" />
+        </>
+      ) : (
+        <>
+          <p className="muted">{correctionMode ? "Recomputing readiness from staged corrections." : "Searching sources and building the TDY readiness picture."}</p>
+          <div className="analysisBanner activeRunBanner">
+            <span className="spinner" />
+            <div>
+              <strong>{correctionMode ? "Recomputing corrected packet" : `Collecting evidence across ${selectedSources.length} sources`}</strong>
+              <span>{correctionMode ? "The agent is validating staged evidence and updating outputs." : "The agent is searching, consolidating, and analyzing evidence."}</span>
+            </div>
+            <span className="progressText">Agent running</span>
+          </div>
+          <div className="agentTimeline" aria-label="Agent run progress">
+            {steps.map((item, index) => (
+              <div className="agentStep" key={`${item.title}-${index}`} style={{ "--step-delay": `${index * 0.42}s` } as CSSProperties}>
+                <span className="agentStepIcon">
+                  <Icon name={item.icon} />
+                </span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>{item.detail}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </Card>
   );
+}
+
+function sourceDetail(source: string) {
+  if (source === "Outlook") return "Scanning approvals, reviewer comments, and funding-related email threads.";
+  if (source === "SharePoint") return "Checking training orders, rosters, unit checklists, and prior packet files.";
+  if (source === "GSA") return "Retrieving per diem rate evidence for Demo Training Site.";
+  if (source === "JTR") return "Reading TDY policy excerpts for required support and justifications.";
+  if (source === "Unit Checklist") return "Comparing packet contents against required unit routing artifacts.";
+  if (source === "Local SOP") return "Applying local routing expectations before review.";
+  return "Searching selected source artifacts.";
 }
 
 function ClassificationBanner() {
@@ -441,12 +524,14 @@ function SearchSources({ intent, run, onNext }: { intent: string; run: FieldDesk
       <SectionTitle number="2" title="Search Sources" />
       <p className="muted">Searching authoritative sources for supporting evidence.</p>
       <div className="analysisBanner">
-        <span className="spinner" />
+        <span className="smallCheck">
+          <Check size={13} aria-hidden="true" />
+        </span>
         <div>
           <strong>Collecting evidence across {run.sourceSearchResults.length} sources</strong>
-          <span>This may take a few moments.</span>
+          <span>Source search completed.</span>
         </div>
-        <span className="progressText">Analysis in progress</span>
+        <span className="progressText">Complete</span>
       </div>
       <table>
         <thead>

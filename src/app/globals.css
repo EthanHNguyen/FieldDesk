@@ -863,6 +863,68 @@ hr {
   margin-left: auto;
 }
 
+.activeRunBanner {
+  background: rgba(0, 122, 51, 0.13);
+  border-color: rgba(0, 122, 51, 0.48);
+}
+
+.agentTimeline {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: grid;
+  overflow: hidden;
+}
+
+.agentStep {
+  align-items: center;
+  animation: unlockAgentStep 3.6s ease-in-out infinite;
+  animation-delay: var(--step-delay);
+  background: #10151b;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 34px 1fr;
+  opacity: 0.48;
+  padding: 13px 14px;
+}
+
+.agentStep:last-child {
+  border-bottom: 0;
+}
+
+.agentStepIcon {
+  align-items: center;
+  background: #141f18;
+  border: 1px solid rgba(0, 122, 51, 0.48);
+  border-radius: 999px;
+  color: #b7f8d0;
+  display: flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.agentStepIcon .icon,
+.agentStepIcon svg {
+  height: 17px;
+  width: 17px;
+}
+
+.agentStep strong {
+  color: var(--text);
+  display: block;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.agentStep span:last-child {
+  color: var(--muted);
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-top: 3px;
+}
+
 table {
   border-collapse: collapse;
   width: 100%;
@@ -1423,6 +1485,25 @@ td .brandLogo {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes unlockAgentStep {
+  0%,
+  18% {
+    background: #10151b;
+    opacity: 0.48;
+  }
+
+  36%,
+  70% {
+    background: rgba(0, 122, 51, 0.11);
+    opacity: 1;
+  }
+
+  100% {
+    background: #10151b;
+    opacity: 0.62;
   }
 }
 
