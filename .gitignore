@@ -13,7 +13,8 @@
 # testing
 /coverage
 /test-results
-/screenshots/
+/screenshots/*
+!/screenshots/00-workflows-dashboard.png
 /videos/
 /demo_recording/
 
