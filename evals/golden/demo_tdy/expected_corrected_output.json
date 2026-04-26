@@ -1,0 +1,20 @@
+{
+  "readiness": {
+    "score": {
+      "min": 88,
+      "max": 95
+    },
+    "risk": "Low"
+  },
+  "requiredEvidenceStatuses": {
+    "Funding source": "Found",
+    "Traveler roster": "Resolved",
+    "Rental vehicle justification": "Improved"
+  },
+  "requiredIssueStatuses": {
+    "roster": "Resolved",
+    "funding": "Found",
+    "justification": "Improved"
+  },
+  "requiredExportValues": ["Demo Training Site", "funding_memo.pdf", "10 soldiers"]
+}

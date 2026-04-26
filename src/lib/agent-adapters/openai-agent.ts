@@ -79,7 +79,7 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
     throw new Error("OpenRouter response did not include message content.");
   }
 
-  return repairAgentRun(normalizeAgentRun(JSON.parse(content)), runFieldDeskAgent(input));
+  return repairAgentRun(input, normalizeAgentRun(JSON.parse(content)), runFieldDeskAgent(input));
 }
 
 function normalizeAgentRun(value: unknown): Partial<FieldDeskAgentRun> {
@@ -89,13 +89,19 @@ function normalizeAgentRun(value: unknown): Partial<FieldDeskAgentRun> {
   return isRecord(value) ? value as Partial<FieldDeskAgentRun> : {};
 }
 
-function repairAgentRun(candidate: Partial<FieldDeskAgentRun>, fallback: FieldDeskAgentRun): FieldDeskAgentRun {
+function repairAgentRun(input: AgentRunInput, candidate: Partial<FieldDeskAgentRun>, fallback: FieldDeskAgentRun): FieldDeskAgentRun {
+  const allResolved = input.resolutions.roster && input.resolutions.funding && input.resolutions.justification;
+  const candidateReadiness = isRecord(candidate.readiness) ? candidate.readiness as FieldDeskAgentRun["readiness"] : fallback.readiness;
+  const readiness = allResolved && (candidateReadiness.risk !== "Low" || candidateReadiness.score < 88)
+    ? fallback.readiness
+    : candidateReadiness;
+
   return {
     mission: isRecord(candidate.mission) ? candidate.mission as FieldDeskAgentRun["mission"] : fallback.mission,
     sourceSearchResults: nonEmptyArray(candidate.sourceSearchResults) ? candidate.sourceSearchResults : fallback.sourceSearchResults,
-    evidenceMap: nonEmptyArray(candidate.evidenceMap) ? candidate.evidenceMap : fallback.evidenceMap,
-    readiness: isRecord(candidate.readiness) ? candidate.readiness as FieldDeskAgentRun["readiness"] : fallback.readiness,
-    issues: nonEmptyArray(candidate.issues) ? candidate.issues : fallback.issues,
+    evidenceMap: allResolved ? fallback.evidenceMap : nonEmptyArray(candidate.evidenceMap) ? candidate.evidenceMap : fallback.evidenceMap,
+    readiness,
+    issues: allResolved ? fallback.issues : nonEmptyArray(candidate.issues) ? candidate.issues : fallback.issues,
     reviewerQuestions: nonEmptyArray(candidate.reviewerQuestions) ? candidate.reviewerQuestions : fallback.reviewerQuestions,
     corrections: nonEmptyArray(candidate.corrections) ? candidate.corrections : fallback.corrections,
     actionList: nonEmptyArray(candidate.actionList) ? candidate.actionList : fallback.actionList,

@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "eval:mock": "tsx scripts/eval-fielddesk.ts mock",
+    "eval:openrouter": "tsx scripts/eval-fielddesk.ts openai",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -25,6 +27,7 @@
     "eslint-config-next": "16.2.4",
     "playwright": "^1.59.1",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

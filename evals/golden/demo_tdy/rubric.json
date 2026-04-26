@@ -1,0 +1,10 @@
+{
+  "name": "TDY Demo Training Site Golden Eval",
+  "description": "Checks that FieldDesk finds fragmented TDY evidence, surfaces funding and traveler-count gaps, predicts reviewer objections, and improves readiness after corrections.",
+  "matching": {
+    "exact": ["risk", "required evidence statuses", "required issue statuses"],
+    "range": ["readiness score"],
+    "contains": ["reviewer question concepts", "export values"],
+    "notExact": ["generated prose"]
+  }
+}

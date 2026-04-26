@@ -1,0 +1,27 @@
+{
+  "mission": {
+    "destination": "Demo Training Site",
+    "dates": "June 10-14",
+    "travelers": "10"
+  },
+  "readiness": {
+    "score": {
+      "min": 68,
+      "max": 76
+    },
+    "risk": "High"
+  },
+  "requiredEvidenceStatuses": {
+    "Funding source": "Missing",
+    "Traveler roster": ["Found", "Conflict"],
+    "Rental vehicle justification": "Weak",
+    "Per diem estimate": "Found",
+    "Approval": "Found"
+  },
+  "requiredIssueStatuses": {
+    "roster": "Conflict",
+    "funding": "Missing",
+    "justification": "Weak"
+  },
+  "requiredReviewerConcepts": ["10 travelers", "funding", "rental vehicles"]
+}

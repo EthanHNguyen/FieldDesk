@@ -48,8 +48,8 @@
 
 ## Golden Dataset And Evals
 
-- [ ] Create `evals/golden/demo_tdy/`.
-- [ ] Add golden scenario files:
+- [x] Create `evals/golden/demo_tdy/`.
+- [x] Add golden scenario files:
   - `input.json`
   - `sources/outlook_messages.json`
   - `sources/sharepoint_documents.json`
@@ -62,7 +62,7 @@
   - `corrections.json`
   - `expected_corrected_output.json`
   - `rubric.json`
-- [ ] Evaluate initial run facts:
+- [x] Evaluate initial run facts:
   - Demo Training Site destination.
   - June 10-14 dates.
   - 10 travelers.
@@ -77,7 +77,7 @@
   - readiness score near 72.
   - risk is High.
   - reviewer objections include funding and traveler count.
-- [ ] Evaluate corrected run facts:
+- [x] Evaluate corrected run facts:
   - `roster_v3_corrected.csv` accepted.
   - `funding_memo.pdf` accepted.
   - rental vehicle justification accepted.
@@ -87,10 +87,10 @@
   - readiness score near 91.
   - risk is Low.
   - final work product includes packet summary, action list, reviewer notes, source list.
-- [ ] Use exact checks for IDs/statuses/facts.
-- [ ] Use range checks for readiness score.
-- [ ] Use contains checks for prose.
-- [ ] Avoid exact prose matching for model-generated summaries.
+- [x] Use exact checks for IDs/statuses/facts.
+- [x] Use range checks for readiness score.
+- [x] Use contains checks for prose.
+- [x] Avoid exact prose matching for model-generated summaries.
 
 ## Testing
 

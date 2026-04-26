@@ -1,0 +1,10 @@
+{
+  "intent": "Send 10 soldiers to Demo Training Site for training from June 10-14. Lodging and rental vehicles required.",
+  "selectedSources": ["Outlook", "SharePoint", "GSA", "JTR", "Unit Checklist", "Local SOP"],
+  "resolutions": {
+    "roster": false,
+    "funding": false,
+    "justification": false
+  },
+  "vehicleJustification": "Rental vehicles are required to move personnel between lodging, training site, and required training support locations due to schedule constraints and lack of available unit transportation."
+}
