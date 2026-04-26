@@ -69,6 +69,8 @@ test("manual issue resolution stages selected actions before recompute", async (
   await expect.poll(() => agentRunRequests).toBe(1);
   await page.getByRole("button", { name: "Stage Selected Action" }).click();
   await expect.poll(() => agentRunRequests).toBe(1);
+  await expect(page.getByText("Likely objections have staged responses")).toBeVisible();
+  await expect(page.getByText("Corrections staged")).toBeVisible();
 
   await expect(page.getByRole("button", { name: "Recompute Readiness" })).toBeVisible();
   await page.getByRole("button", { name: "Recompute Readiness" }).click();

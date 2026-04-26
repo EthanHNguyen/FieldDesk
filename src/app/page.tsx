@@ -49,7 +49,7 @@ import {
   workflows,
   workflowSteps
 } from "../lib/fielddesk-static";
-import type { FieldDeskAgentRun, IssueId, ResolutionState, Step, Status } from "../lib/fielddesk-types";
+import type { AgentIssue, FieldDeskAgentRun, IssueId, ResolutionState, Step, Status } from "../lib/fielddesk-types";
 
 const initialResolutionState: ResolutionState = {
   roster: false,
@@ -186,7 +186,7 @@ export default function Home() {
                 {step === 5 && agentRun && <ResolveRecompute run={agentRun} onExport={() => advance(6)} />}
                 {step === 6 && agentRun && <ExportDts run={agentRun} />}
               </section>
-              {agentRun && <MissionRail run={agentRun} step={step} resolved={resolved} />}
+              {agentRun && <MissionRail correctionsStaged={step === 4 && allIssuesResolved} run={agentRun} step={step} resolved={resolved} />}
             </div>
           </>
         )}
@@ -639,6 +639,10 @@ function SurfaceGaps({
   onStageResolution: (issue: keyof ResolutionState) => void;
   onRecompute: () => void;
 }) {
+  const displayedIssues = stageIssueStatuses(run.issues, resolution);
+  const displayedReviewerQuestions = reviewerQuestionsForStage(run.reviewerQuestions, displayedIssues);
+  const unresolvedIssues = displayedIssues.filter((issue) => !["Found", "Improved", "Resolved"].includes(issue.status));
+
   return (
     <div className="stack">
       <Card>
@@ -663,10 +667,13 @@ function SurfaceGaps({
       </Card>
       <Card>
         <GapTitle number="2" title="Return Risk" tone="red" />
-        <p className="muted">This packet is likely to come back from review unless the open blockers are staged and recomputed.</p>
+        <p className="muted">
+          {allIssuesResolved
+            ? "Corrective evidence is staged. Recompute readiness to let the agent validate the updated packet."
+            : "This packet is likely to come back from review unless the open blockers are staged and recomputed."}
+        </p>
         <div className="packageList">
-          {run.issues
-            .filter((issue) => !["Found", "Improved", "Resolved"].includes(issue.status))
+          {(allIssuesResolved ? displayedIssues : unresolvedIssues)
             .map((issue) => (
               <div key={issue.id}>
                 <span>
@@ -681,18 +688,22 @@ function SurfaceGaps({
         activeIssue={activeIssue}
         justification={justification}
         resolution={resolution}
-        run={run}
+        run={{ ...run, issues: displayedIssues }}
         onActiveIssue={onActiveIssue}
         onJustificationChange={onJustificationChange}
         onStageResolution={onStageResolution}
       />
       <Card>
         <GapTitle number="3" title="Likely Reviewer Objections" tone="orange" />
-        <ol className="questions">
-          {run.reviewerQuestions.map((question) => (
-            <li key={question}>{question}</li>
-          ))}
-        </ol>
+        {displayedReviewerQuestions.length > 0 ? (
+          <ol className="questions">
+            {displayedReviewerQuestions.map((question) => (
+              <li key={question}>{question}</li>
+            ))}
+          </ol>
+        ) : (
+          <p className="muted">Likely objections have staged responses. Recompute readiness to validate the updated packet.</p>
+        )}
       </Card>
       <div className="buttonRow">
         <button type="button" className="primary" onClick={allIssuesResolved ? onRecompute : () => onStageResolution(activeIssue)}>
@@ -704,6 +715,40 @@ function SurfaceGaps({
       </div>
     </div>
   );
+}
+
+function stageIssueStatuses(issues: ReadonlyArray<AgentIssue>, resolution: ResolutionState): AgentIssue[] {
+  return issues.map((issue) => {
+    if (!resolution[issue.id]) return issue;
+    if (issue.id === "roster") return { ...issue, status: "Resolved", summary: "Corrected roster is staged for recompute." };
+    if (issue.id === "funding") return { ...issue, status: "Found", summary: "Funding memo is staged for recompute." };
+    return { ...issue, status: "Improved", summary: "Mission-specific rental vehicle justification is staged for recompute." };
+  });
+}
+
+function reviewerQuestionsForStage(questions: ReadonlyArray<string>, issues: ReadonlyArray<AgentIssue>) {
+  const openIssueIds = new Set(issues.filter((issue) => !["Found", "Improved", "Resolved"].includes(issue.status)).map((issue) => issue.id));
+  if (openIssueIds.size === 0) return [];
+
+  const filtered = questions.filter((question) => {
+    const issueId = reviewerQuestionIssue(question);
+    return issueId ? openIssueIds.has(issueId) : false;
+  });
+  const covered = filtered.join(" ");
+  const fallbackQuestions = [
+    openIssueIds.has("roster") && !/roster|traveler|10/i.test(covered) ? "Why does the request list 10 travelers while the roster lists 8?" : null,
+    openIssueIds.has("funding") && !/fund|cite|loa|fiscal/i.test(covered) ? "Does the packet include a fund cite or funding memo?" : null,
+    openIssueIds.has("justification") && !/rental|vehicle|transport/i.test(covered) ? "Why are rental vehicles required for this mission?" : null
+  ].filter(Boolean);
+
+  return [...filtered, ...fallbackQuestions] as string[];
+}
+
+function reviewerQuestionIssue(question: string): IssueId | null {
+  if (/roster|traveler|10/i.test(question)) return "roster";
+  if (/fund|cite|loa|fiscal/i.test(question)) return "funding";
+  if (/rental|vehicle|transport/i.test(question)) return "justification";
+  return null;
 }
 
 function IssueResolutionWorkspace({
@@ -1052,8 +1097,8 @@ function ExportDts({ run }: { run: FieldDeskAgentRun }) {
   );
 }
 
-function MissionRail({ run, step, resolved }: { run: FieldDeskAgentRun; step: Step; resolved: boolean }) {
-  const status = step === 1 ? "Intent captured" : step < 4 ? ["Analyzing sources", "Evidence mapped"][step - 2] : resolved ? "Ready for human review" : "High review risk";
+function MissionRail({ correctionsStaged, run, step, resolved }: { correctionsStaged: boolean; run: FieldDeskAgentRun; step: Step; resolved: boolean }) {
+  const status = step === 1 ? "Intent captured" : step < 4 ? ["Analyzing sources", "Evidence mapped"][step - 2] : correctionsStaged ? "Corrections staged" : resolved ? "Ready for human review" : "High review risk";
   return (
     <aside className="rail">
       <h2>Mission Summary</h2>
@@ -1065,7 +1110,7 @@ function MissionRail({ run, step, resolved }: { run: FieldDeskAgentRun; step: St
       ))}
       <div className="summaryRow">
         <span>Status</span>
-        <strong className={resolved ? "greenText" : step >= 4 ? "redText" : "blueText"}>
+        <strong className={resolved || correctionsStaged ? "greenText" : step >= 4 ? "redText" : "blueText"}>
           <span className="dot" /> {status}
         </strong>
       </div>
