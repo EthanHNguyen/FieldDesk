@@ -24,6 +24,39 @@ export type AgentRunRequest = {
   input: AgentRunInput;
 };
 
+export type AgentArtifact = {
+  id: string;
+  source: string;
+  title: string;
+  kind: string;
+  content: string;
+  facts?: unknown;
+};
+
+export type UnavailableArtifactSummary = {
+  id: string;
+  source: string;
+  title: string;
+  reason: string;
+};
+
+export type CorrectionEvent = {
+  type: "artifact_added" | "justification_accepted";
+  artifactId: string;
+  title: string;
+};
+
+export type AgentRunContext = {
+  sessionId: string;
+  trigger: AgentRunTrigger;
+  intent: string;
+  selectedSources: string[];
+  availableArtifacts: AgentArtifact[];
+  unavailableArtifacts: UnavailableArtifactSummary[];
+  correctionEvents: CorrectionEvent[];
+  vehicleJustification: string;
+};
+
 export type SourceSearchResult = readonly [source: string, finding: string];
 
 export type EvidenceMapItem = readonly [requirement: string, evidence: string, source: string, status: Status];

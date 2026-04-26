@@ -7,14 +7,15 @@
     "risk": "Low"
   },
   "requiredEvidenceStatuses": {
-    "Funding source": "Found",
+    "Funding source": ["Found", "Resolved", "Improved"],
     "Traveler roster": "Resolved",
-    "Rental vehicle justification": "Improved"
+    "Rental vehicle justification": ["Improved", "Found", "Resolved"]
   },
   "requiredIssueStatuses": {
     "roster": "Resolved",
-    "funding": "Found",
-    "justification": "Improved"
+    "funding": ["Found", "Resolved", "Improved"],
+    "justification": ["Improved", "Found", "Resolved"]
   },
-  "requiredExportValues": ["Demo Training Site", "funding_memo.pdf", "10 soldiers"]
+  "requiredExportValues": ["Demo Training Site", "funding_memo", "10 soldiers"],
+  "requiredEvidenceRefs": ["funding_memo", "roster_v3_corrected"]
 }

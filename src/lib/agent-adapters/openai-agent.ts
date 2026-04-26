@@ -1,12 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runFieldDeskAgent } from "../fielddesk-agent";
-import { sourceSearchResults, evidenceMap, readinessAreas, reviewerQuestions, actionList, corrections, dtsRows, packageRows } from "../fielddesk-static";
-import type { AgentRunInput, FieldDeskAgentRun } from "../fielddesk-types";
+import type { AgentArtifact, AgentRunContext, AgentRunInput, CorrectionEvent, FieldDeskAgentRun, UnavailableArtifactSummary } from "../fielddesk-types";
 
 export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAgentRun> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_MODEL ?? "openai/gpt-4o-mini";
+  const model = process.env.OPENROUTER_MODEL ?? "openai/gpt-5.5";
+  const context = buildAgentRunContext(input);
 
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY is not configured.");
@@ -26,19 +25,30 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
         {
           role: "system",
           content:
-            "You are FieldDesk Agent. Reason over controlled, synthetic administrative context. Return only valid JSON matching the provided schema. Do not approve travel, submit into DTS, or invent real external facts."
+            "You are FieldDesk Agent. Reason over the current run's availableArtifacts only. Unavailable artifacts are not evidence and must not satisfy requirements. You may mention unavailable artifacts only as recommended next actions. Return only valid JSON matching the provided schema. Do not approve travel, submit into DTS, or invent real external facts."
         },
         {
           role: "user",
           content: JSON.stringify({
-            task: "Analyze the TDY Travel Readiness workflow and return the complete FieldDeskAgentRun JSON.",
-            input,
-            controlledContext: loadControlledContext(),
+            task: "Analyze the TDY Travel Readiness workflow using only the current AgentRunContext and return the complete FieldDeskAgentRun JSON.",
+            agentRunContext: context,
             outputGuidance: {
               statuses: ["Found", "Weak", "Missing", "Conflict", "Resolved", "Improved", "High", "Low"],
-              initialReadinessScore: 72,
-              correctedReadinessScore: 91,
               preserveTableOrder: true,
+              requiredEvidenceRequirements: [
+                "Mission purpose",
+                "Travel dates",
+                "Destination",
+                "Traveler roster",
+                "Approval",
+                "Per diem estimate",
+                "Policy reference",
+                "Unit checklist",
+                "Rental vehicle justification",
+                "Funding source"
+              ],
+              requiredIssueIds: ["roster", "funding", "justification"],
+              scoringGuidance: "Score and risk should follow the evidence available in this run. Do not treat unavailable artifacts as found.",
               expectedOutputShape: {
                 mission: "object",
                 sourceSearchResults: "array of [source, finding]",
@@ -79,77 +89,197 @@ export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAge
     throw new Error("OpenRouter response did not include message content.");
   }
 
-  return repairAgentRun(input, normalizeAgentRun(JSON.parse(content)), runFieldDeskAgent(input));
+  return normalizeAgentRun(JSON.parse(content));
 }
 
-function normalizeAgentRun(value: unknown): Partial<FieldDeskAgentRun> {
-  if (isRecord(value) && isRecord(value.output)) return value.output as Partial<FieldDeskAgentRun>;
-  if (isRecord(value) && isRecord(value.run)) return value.run as Partial<FieldDeskAgentRun>;
-  if (isRecord(value) && isRecord(value.FieldDeskAgentRun)) return value.FieldDeskAgentRun as Partial<FieldDeskAgentRun>;
-  return isRecord(value) ? value as Partial<FieldDeskAgentRun> : {};
-}
-
-function repairAgentRun(input: AgentRunInput, candidate: Partial<FieldDeskAgentRun>, fallback: FieldDeskAgentRun): FieldDeskAgentRun {
-  const allResolved = input.resolutions.roster && input.resolutions.funding && input.resolutions.justification;
-  const candidateReadiness = isRecord(candidate.readiness) ? candidate.readiness as FieldDeskAgentRun["readiness"] : fallback.readiness;
-  const readiness = allResolved && (candidateReadiness.risk !== "Low" || candidateReadiness.score < 88)
-    ? fallback.readiness
-    : candidateReadiness;
-
-  return {
-    mission: isRecord(candidate.mission) ? candidate.mission as FieldDeskAgentRun["mission"] : fallback.mission,
-    sourceSearchResults: nonEmptyArray(candidate.sourceSearchResults) ? candidate.sourceSearchResults : fallback.sourceSearchResults,
-    evidenceMap: allResolved ? fallback.evidenceMap : nonEmptyArray(candidate.evidenceMap) ? candidate.evidenceMap : fallback.evidenceMap,
-    readiness,
-    issues: allResolved ? fallback.issues : nonEmptyArray(candidate.issues) ? candidate.issues : fallback.issues,
-    reviewerQuestions: nonEmptyArray(candidate.reviewerQuestions) ? candidate.reviewerQuestions : fallback.reviewerQuestions,
-    corrections: nonEmptyArray(candidate.corrections) ? candidate.corrections : fallback.corrections,
-    actionList: nonEmptyArray(candidate.actionList) ? candidate.actionList : fallback.actionList,
-    dtsRows: nonEmptyArray(candidate.dtsRows) ? candidate.dtsRows : fallback.dtsRows,
-    packageRows: nonEmptyArray(candidate.packageRows) ? candidate.packageRows : fallback.packageRows,
-    activityTrail: nonEmptyArray(candidate.activityTrail) ? candidate.activityTrail : fallback.activityTrail
-  };
-}
-
-function nonEmptyArray<T>(value: readonly T[] | undefined): value is readonly T[] {
-  return Array.isArray(value) && value.length > 0;
+function normalizeAgentRun(value: unknown): FieldDeskAgentRun {
+  if (isRecord(value) && isRecord(value.output)) return value.output as FieldDeskAgentRun;
+  if (isRecord(value) && isRecord(value.run)) return value.run as FieldDeskAgentRun;
+  if (isRecord(value) && isRecord(value.FieldDeskAgentRun)) return value.FieldDeskAgentRun as FieldDeskAgentRun;
+  return value as FieldDeskAgentRun;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function loadControlledContext() {
+function buildAgentRunContext(input: AgentRunInput): AgentRunContext {
+  const corrected = input.resolutions.roster || input.resolutions.funding || input.resolutions.justification;
+  const availableArtifacts: AgentArtifact[] = [];
+  const unavailableArtifacts: UnavailableArtifactSummary[] = [];
+  const correctionEvents: CorrectionEvent[] = [];
+
+  addOutlookArtifacts(input, availableArtifacts, unavailableArtifacts);
+  addSharePointArtifacts(input, availableArtifacts, unavailableArtifacts);
+  addReferenceArtifacts(input, availableArtifacts);
+  addUploadedArtifacts(input, availableArtifacts, unavailableArtifacts);
+
+  if (input.resolutions.roster) {
+    correctionEvents.push({ type: "artifact_added", artifactId: "sp-004", title: "roster_v3_corrected.csv" });
+  }
+  if (input.resolutions.funding) {
+    correctionEvents.push({ type: "artifact_added", artifactId: "upload-003", title: "funding_memo.md" });
+  }
+  if (input.resolutions.justification) {
+    availableArtifacts.push({
+      id: "justification-001",
+      source: "User correction",
+      title: "Rental vehicle justification",
+      kind: "Text",
+      content: input.vehicleJustification,
+      facts: {
+        rentalVehicleJustificationAccepted: true
+      }
+    });
+    correctionEvents.push({ type: "justification_accepted", artifactId: "justification-001", title: "Rental vehicle justification" });
+  }
+
   return {
-    staticTables: {
-      sourceSearchResults,
-      evidenceMap,
-      readinessAreas,
-      reviewerQuestions,
-      actionList,
-      corrections,
-      dtsRows,
-      packageRows
-    },
-    sourceFiles: {
-      outlookMessages: readJson("outlook_messages.json"),
-      sharePointDocuments: readJson("sharepoint_documents.json"),
-      gsaPerDiem: readJson("gsa_per_diem_fixture.json"),
-      sourceManifest: readJson("source_manifest.json"),
-      uploadedDocuments: readJson("uploaded_documents.json"),
-      agentRuns: readJson("agent_runs.json"),
-      jtrExcerpt: readText("jtr_excerpt.md"),
-      localSop: readText("local_sop.md"),
-      priorPacket: readText("prior_successful_packet.md"),
-      rosterV2: readText("roster_v2.csv"),
-      rosterV3Corrected: readText("roster_v3_corrected.csv"),
-      fundingMemo: readText("funding_memo.md")
-    }
+    sessionId: "demo-tdy-session",
+    trigger: corrected ? "correction_staged" : "initial_analysis",
+    intent: input.intent,
+    selectedSources: input.selectedSources,
+    availableArtifacts,
+    unavailableArtifacts,
+    correctionEvents,
+    vehicleJustification: input.vehicleJustification
   };
 }
 
-function readJson(filename: string) {
-  return JSON.parse(readText(filename)) as unknown;
+function addOutlookArtifacts(input: AgentRunInput, available: AgentArtifact[], unavailable: UnavailableArtifactSummary[]) {
+  if (!input.selectedSources.includes("Outlook")) return;
+  const mailbox = readJson<Record<string, unknown>>("outlook_messages.json");
+  const messages = Array.isArray(mailbox.messages) ? mailbox.messages : [];
+
+  for (const message of messages) {
+    if (!isRecord(message)) continue;
+    const availableInState = typeof message.availableInState === "string" ? message.availableInState : "initial";
+    const artifact = {
+      id: String(message.id),
+      source: "Outlook",
+      title: String(message.subject),
+      kind: "Email",
+      content: String(message.body),
+      facts: message.extractedEvidence
+    };
+
+    if (availableInState === "corrected" && !input.resolutions.funding) {
+      unavailable.push({
+        id: artifact.id,
+        source: artifact.source,
+        title: artifact.title,
+        reason: "Funding evidence is not available until the funding correction is staged."
+      });
+    } else {
+      available.push(artifact);
+    }
+  }
+}
+
+function addSharePointArtifacts(input: AgentRunInput, available: AgentArtifact[], unavailable: UnavailableArtifactSummary[]) {
+  if (!input.selectedSources.includes("SharePoint")) return;
+  const site = readJson<Record<string, unknown>>("sharepoint_documents.json");
+  const documents = Array.isArray(site.documents) ? site.documents : [];
+
+  for (const document of documents) {
+    if (!isRecord(document)) continue;
+    const availableInState = typeof document.availableInState === "string" ? document.availableInState : "initial";
+    const filename = String(document.filename);
+    const artifact = {
+      id: String(document.id),
+      source: "SharePoint",
+      title: filename,
+      kind: String(document.kind),
+      content: [String(document.extractedText), readOptionalCsv(filename)].filter(Boolean).join("\n\n"),
+      facts: document.extractedEvidence
+    };
+
+    if (availableInState === "corrected" && !input.resolutions.roster) {
+      unavailable.push({
+        id: artifact.id,
+        source: artifact.source,
+        title: artifact.title,
+        reason: "Corrected roster is not available until the roster correction is staged."
+      });
+    } else {
+      available.push(artifact);
+    }
+  }
+}
+
+function addReferenceArtifacts(input: AgentRunInput, available: AgentArtifact[]) {
+  if (input.selectedSources.includes("GSA")) {
+    available.push({
+      id: "gsa-001",
+      source: "GSA",
+      title: "Demo Training Site per diem rates",
+      kind: "JSON",
+      content: JSON.stringify(readJson("gsa_per_diem_fixture.json")),
+      facts: { destination: "Demo Training Site", perDiemRatesFound: true }
+    });
+  }
+
+  if (input.selectedSources.includes("JTR")) {
+    available.push({
+      id: "jtr-001",
+      source: "JTR",
+      title: "JTR TDY excerpt",
+      kind: "Markdown",
+      content: readText("jtr_excerpt.md"),
+      facts: { policyReferenceFound: true }
+    });
+  }
+
+  if (input.selectedSources.includes("Local SOP")) {
+    available.push({
+      id: "sop-001",
+      source: "Local SOP",
+      title: "Unit TDY routing SOP",
+      kind: "Markdown",
+      content: readText("local_sop.md"),
+      facts: { routingExpectationsFound: true }
+    });
+  }
+}
+
+function addUploadedArtifacts(input: AgentRunInput, available: AgentArtifact[], unavailable: UnavailableArtifactSummary[]) {
+  const uploads = readJson<Record<string, unknown>>("uploaded_documents.json");
+  const documents = Array.isArray(uploads.uploads) ? uploads.uploads : [];
+
+  for (const document of documents) {
+    if (!isRecord(document)) continue;
+    const availableInState = typeof document.availableInState === "string" ? document.availableInState : "initial";
+    const filename = String(document.filename);
+    const artifact = {
+      id: String(document.id),
+      source: "Uploaded docs",
+      title: filename,
+      kind: filename.endsWith(".json") ? "JSON" : "Markdown",
+      content: filename === "funding_memo.md" ? readText("funding_memo.md") : String(document.extractedText),
+      facts: { uploadedDocument: true }
+    };
+
+    if (availableInState === "corrected" && !input.resolutions.funding) {
+      unavailable.push({
+        id: artifact.id,
+        source: artifact.source,
+        title: artifact.title,
+        reason: "Funding memo is not uploaded until the funding correction is staged."
+      });
+    } else {
+      available.push(artifact);
+    }
+  }
+}
+
+function readOptionalCsv(filename: string) {
+  if (filename === "roster_v2.csv") return readText("roster_v2.csv");
+  if (filename === "roster_v3_corrected.csv") return readText("roster_v3_corrected.csv");
+  return "";
+}
+
+function readJson<T = unknown>(filename: string): T {
+  return JSON.parse(readText(filename)) as T;
 }
 
 function readText(filename: string) {

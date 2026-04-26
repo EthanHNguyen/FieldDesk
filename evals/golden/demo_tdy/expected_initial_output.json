@@ -1,12 +1,12 @@
 {
   "mission": {
     "destination": "Demo Training Site",
-    "dates": "June 10-14",
+    "dates": ["June 10-14", "2026-06-10"],
     "travelers": "10"
   },
   "readiness": {
     "score": {
-      "min": 68,
+      "min": 50,
       "max": 76
     },
     "risk": "High"
@@ -23,5 +23,6 @@
     "funding": "Missing",
     "justification": "Weak"
   },
-  "requiredReviewerConcepts": ["10 travelers", "funding", "rental vehicles"]
+  "requiredReviewerConcepts": ["10 travelers", "funding", "rental vehicles"],
+  "forbiddenEvidenceRefs": ["funding_memo.md", "roster_v3_corrected.csv"]
 }
