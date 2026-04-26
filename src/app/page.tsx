@@ -115,12 +115,14 @@ export default function Home() {
   }
 
   function stageResolution(key: IssueId) {
+    setAgentRun(null);
     setResolution((current) => ({ ...current, [key]: true }));
     if (key === "roster") setActiveIssue("funding");
     if (key === "funding") setActiveIssue("justification");
   }
 
   function applyDemoCorrections() {
+    setAgentRun(null);
     setResolution({ roster: true, funding: true, justification: true });
     advance(5);
   }

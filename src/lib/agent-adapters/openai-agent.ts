@@ -4,7 +4,7 @@ import type { AgentArtifact, AgentRunContext, AgentRunInput, CorrectionEvent, Fi
 
 export async function runOpenAIAgent(input: AgentRunInput): Promise<FieldDeskAgentRun> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_MODEL ?? "openai/gpt-5.5";
+  const model = process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
   const context = buildAgentRunContext(input);
 
   if (!apiKey) {
