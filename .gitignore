@@ -48,6 +48,5 @@ next-env.d.ts
 # generated review artifacts
 *.mp4
 *.webm
-!assets/fielddesk-demo.mp4
 video_path.txt
 home.png
