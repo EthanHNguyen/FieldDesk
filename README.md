@@ -4,7 +4,7 @@
 
 The military does not just run on orders. It runs on the administrative work that makes orders executable.
 
-> Public demo note: FieldDesk uses synthetic data only. This repository does not contain CUI, classified information, real personnel data, live system credentials, operational records, or official government output.
+> Public demo note: FieldDesk uses synthetic demo data only. This repository contains no sensitive information, real personnel data, live credentials, operational records, or official government output.
 
 ## Submission
 
